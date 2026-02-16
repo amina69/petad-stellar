@@ -3,7 +3,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![Stellar](https://img.shields.io/badge/Stellar-SDK-7D00FF.svg)](https://stellar.org/)
-[![npm](https://img.shields.io/badge/npm-@petad/stellar--sdk-red.svg)](https://www.npmjs.com/package/@petad/stellar-sdk)
 
 Production-grade blockchain infrastructure SDK for PetAd. Provides secure, reusable utilities and abstractions for escrow, custody guarantees, and transaction management on the Stellar network.
 
