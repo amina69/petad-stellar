@@ -1,16 +1,23 @@
 {
-  "name": "petad-stellar-contracts",
+  "name": "petad-chain",
   "version": "1.0.0",
-  "main": "index.js",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
+    "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["stellar", "blockchain", "sdk"],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Stellar SDK infrastructure for PetAd chain",
   "dependencies": {
     "@stellar/stellar-sdk": "^14.5.0",
     "dotenv": "^17.3.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
   }
 }
