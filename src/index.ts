@@ -78,3 +78,5 @@ export default class PetAdChain {
 
 export * from './config.js';
 export * from './stellar-service.js';
+export * from './services/escrow.service.js';
+export * from './contracts/escrow.contract.js';

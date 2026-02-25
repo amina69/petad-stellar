@@ -6,7 +6,10 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node dist/src/escrow.test.js",
+    "test-escrow": "ENCRYPTION_KEY=test-key-123 node dist/src/escrow.test.js",
+    "create-escrow": "node dist/src/cli/create-escrow.js",
+    "dev": "npm run build && npm run create-escrow"
   },
   "keywords": ["stellar", "blockchain", "sdk"],
   "author": "",
