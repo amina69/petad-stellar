@@ -53,7 +53,7 @@ async function demonstrateFundingTransaction() {
 
     console.log('📋 Required Parameters:');
     console.log('─'.repeat(40));
-    console.log(`   Source Secret: ${mockParams.sourceSecret.substring(0, 10)}...`);
+    console.log(`   Source Secret: [REDACTED]`);
     console.log(`   Destination: ${mockParams.destinationPublicKey}`);
     console.log(`   Amount: ${mockParams.amount} XLM`);
     console.log(`   Escrow ID: ${mockParams.escrowId}`);

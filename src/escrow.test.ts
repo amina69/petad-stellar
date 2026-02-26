@@ -22,9 +22,7 @@ async function testEscrowAccountCreation() {
 
 		console.log("✅ Escrow account created successfully!");
 		console.log(`   Public Key: ${result.publicKey}`);
-		console.log(
-			`   Encrypted Secret: ${result.encryptedSecret.substring(0, 50)}...`,
-		);
+		console.log(`   Encrypted Secret: ${result.encryptedSecret.substring(0, 20)}...`);
 		console.log(`   Funded: ${result.funded}`);
 		console.log(`   Exists: ${result.exists}`);
 		console.log(`   Balance: ${result.balance} XLM`);
@@ -37,9 +35,7 @@ async function testEscrowAccountCreation() {
 			encryptionKey,
 		);
 		console.log("✅ Secret key decrypted successfully!");
-		console.log(
-			`   Decrypted Secret: ${decryptedSecret.substring(0, 10)}...\n`,
-		);
+		console.log(`   Decrypted Secret: [REDACTED]\n`);
 
 		// Test 3: Validate account existence independently
 		console.log("📝 Test 3: Validating account existence independently...");

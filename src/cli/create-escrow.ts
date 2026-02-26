@@ -51,7 +51,7 @@ async function createEscrowAccount(options: CreateEscrowOptions = {}) {
     console.log('📊 Account Details:');
     console.log('─'.repeat(50));
     console.log(`🔓 Public Key: ${result.publicKey}`);
-    console.log(`🔐 Encrypted Secret: ${result.encryptedSecret}`);
+    console.log(`🔐 Encrypted Secret: ${result.encryptedSecret.substring(0, 20)}...`);
     
     if ('exists' in result && result.exists) {
       console.log(`✅ Account Exists: ${result.exists}`);
@@ -70,7 +70,7 @@ async function createEscrowAccount(options: CreateEscrowOptions = {}) {
     // Instructions for decryption
     console.log(`\n📝 To decrypt the secret key:`);
     console.log(`const escrowService = new EscrowService();`);
-    console.log(`const secret = escrowService.decryptSecret('${result.encryptedSecret}', '${encryptionKey || 'YOUR_ENCRYPTION_KEY'}');`);
+    console.log(`const secret = escrowService.decryptSecret(encryptedSecret, 'YOUR_ENCRYPTION_KEY');`);
 
     return result;
 

@@ -40,7 +40,7 @@ async function releaseEscrowFunds(options: ReleaseEscrowOptions) {
 
 		console.log(`🌐 Network: ${testnet ? "Testnet" : "Mainnet"}`);
 		console.log(`🔑 Escrow Public Key: ${escrowPublicKey}`);
-		console.log(`🔐 Encrypted Secret: ${encryptedSecret.substring(0, 50)}...`);
+		console.log(`🔐 Encrypted Secret: ${encryptedSecret.substring(0, 20)}...`);
 		console.log(`👤 Custodian Public Key: ${custodianPublicKey}`);
 		console.log(`💰 Amount: ${amount || "All available funds"}`);
 		console.log(
