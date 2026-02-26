@@ -46,9 +46,10 @@ async function testPetAdChain() {
 
         // Test 4: Anchor trust hash
         console.log('🔒 Test 4: Anchoring trust hash...');
-        const trustResult = await chain.anchorTrustHash(paymentResult.hash);
+        const trustHash = 'test-hash-' + Date.now().toString().slice(-10);
+        const trustResult = await chain.anchorTrustHash(trustHash, masterSecret);
         console.log(`✅ Trust hash anchored!`);
-        console.log(`🔗 Hash: ${trustResult.hash}`);
+        console.log(`🔗 Transaction Hash: ${trustResult.hash}`);
         console.log(`🔐 Verified: ${trustResult.verified}`);
         if (trustResult.timestamp) {
           console.log(`⏰ Timestamp: ${trustResult.timestamp.toISOString()}`);

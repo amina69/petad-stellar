@@ -28,6 +28,8 @@ Production-grade blockchain infrastructure SDK for PetAd. Provides secure, reusa
   - [Escrow Account Creation](#escrow-account-creation)
   - [Multisig Transaction](#multisig-transaction)
   - [Custody Lock & Release](#custody-lock--release)
+  - [Trust Hash Anchoring](#trust-hash-anchoring)
+  - [Event Verification](#event-verification)
   - [Event Verification](#event-verification)
 - [Project Structure](#project-structure)
 - [API Reference](#api-reference)
@@ -98,6 +100,11 @@ This SDK abstracts blockchain complexity and exposes **clean, type-safe APIs** f
 |---------|-------------|
 | **Escrow Account Creation** | Generate 2-of-3 multisig escrow accounts with time locks |
 | **Multisig Orchestration** | Build and sign multi-signature transactions |
+| **Custody Locking** | Lock funds in escrow for time-bound custody agreements |
+| **Automatic Release** | Time-based or condition-based escrow settlement |
+| **Trust Hash Anchoring** | Permanently record trust snapshots on-chain with memo |
+| **Event Verification** | Cryptographically verify on-chain event anchoring |
+| **Network Abstraction** | Seamless switching between testnet and mainnet |
 | **Custody Locking** | Lock funds in escrow for time-bound custody agreements |
 | **Automatic Release** | Time-based or condition-based escrow settlement |
 | **Event Verification** | Cryptographically verify on-chain event anchoring |
@@ -425,6 +432,55 @@ async function setupTemporaryCustody() {
   };
 }
 ```
+
+---
+
+### Trust Hash Anchoring
+
+Permanently record trust snapshots on the Stellar blockchain:
+
+```typescript
+import PetAdChain from '@petad/stellar-sdk';
+import crypto from 'crypto';
+
+async function anchorTrustSnapshot() {
+  const chain = new PetAdChain({ useTestnet: false });
+  
+  // Create hash of trust data (max 28 bytes)
+  const trustData = {
+    userId: 'user-123',
+    score: 95,
+    timestamp: Date.now()
+  };
+  
+  const hash = crypto
+    .createHash('sha256')
+    .update(JSON.stringify(trustData))
+    .digest('hex')
+    .substring(0, 28); // Truncate to 28 bytes
+  
+  // Anchor on blockchain (0.00001 XLM self-payment)
+  const result = await chain.anchorTrustHash(hash, process.env.SECRET_KEY!);
+  
+  return {
+    trustHash: hash,
+    transactionHash: result.hash,
+    verified: result.verified,
+    timestamp: result.timestamp
+  };
+}
+
+// CLI usage
+// npm run anchor-trust-hash -- --hash "trust-snapshot-123"
+```
+
+**Key Features:**
+- Minimal cost: 0.00001 XLM + network fee
+- Immutable record with blockchain timestamp
+- Hash visible in transaction memo
+- Maximum hash size: 28 bytes
+
+See [TRUST_HASH_README.md](TRUST_HASH_README.md) for detailed documentation.
 
 ---
 

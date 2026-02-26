@@ -132,11 +132,18 @@ async function testEscrowRelease() {
 
 		// Test 1: Release funds to custodian
 		console.log("📝 Test 1: Releasing escrow funds to custodian...");
+		const custodianKey = config.getCustodianPublicKey();
+		if (!custodianKey) {
+			throw new Error('CUSTODIAN_PUBLIC_KEY is required');
+		}
+			throw new Error("Custodian public key not configured");
+		}
+		
 		const releaseResult = await escrowService.releaseEscrowFunds({
 			escrowPublicKey: escrowAccount.publicKey,
 			encryptedSecret: escrowAccount.encryptedSecret,
 			encryptionKey,
-			custodianPublicKey: config.getCustodianPublicKey(),
+			custodianPublicKey: custodianKey,
 		});
 
 		console.log("✅ Release operation completed!");
@@ -150,7 +157,7 @@ async function testEscrowRelease() {
 			escrowPublicKey: escrowAccount.publicKey,
 			encryptedSecret: escrowAccount.encryptedSecret,
 			encryptionKey,
-			custodianPublicKey: config.getCustodianPublicKey(),
+			custodianPublicKey: custodianKey,
 		});
 
 		console.log("✅ Second release operation completed!");
@@ -170,7 +177,7 @@ async function testEscrowRelease() {
 				escrowPublicKey: minimalAccount.publicKey!,
 				encryptedSecret: minimalAccount.encryptedSecret,
 				encryptionKey,
-				custodianPublicKey: config.getCustodianPublicKey(),
+				custodianPublicKey: custodianKey,
 				amount: "100.0", // More than available
 			});
 			console.log("❌ Should have failed with insufficient funds!");

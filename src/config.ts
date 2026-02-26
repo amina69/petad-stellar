@@ -1,8 +1,8 @@
 export interface EnvConfig {
 	horizonUrl: string;
 	networkPassphrase: string;
-	masterSecret?: string;
-	custodianPublicKey?: string;
+	masterSecret?: string | undefined;
+	custodianPublicKey?: string | undefined;
 }
 
 export class Config {

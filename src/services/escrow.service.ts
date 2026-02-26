@@ -2,6 +2,7 @@ import * as StellarSdk from "@stellar/stellar-sdk";
 import { Config } from "../config.js";
 import { StellarService } from "../stellar-service.js";
 import { EncryptionUtils } from "../utils/encryption.utils.js";
+import { NetworkGuard } from "../guards/network.guard.js";
 
 export interface EscrowAccountResult {
 	publicKey: string;
@@ -47,12 +48,14 @@ export interface EscrowRefundResult {
 export class EscrowService {
 	private stellarService: StellarService;
 	private config: Config;
+	private networkGuard: NetworkGuard;
 	private releasedTransactions: Set<string> = new Set();
 	private refundedTransactions: Set<string> = new Set();
 
-	constructor(config?: Config) {
+	constructor(config?: Config, networkGuard?: NetworkGuard) {
 		this.config = config || Config.getInstance();
-		this.stellarService = new StellarService(this.config);
+		this.networkGuard = networkGuard || NetworkGuard.withPublicConsent(this.config);
+		this.stellarService = new StellarService(this.config, this.networkGuard);
 	}
 
 	/**

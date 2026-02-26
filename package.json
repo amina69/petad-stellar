@@ -11,10 +11,15 @@
 		"test-release": "ENCRYPTION_KEY=test-release-key-456 CUSTODIAN_PUBLIC_KEY=GBQGEXZF36EQBJZ72QC5JEGUHBRI22CGUWEP7OVZA44OAJFFKKIRVDOE node dist/src/escrow-release.test.js",
 		"test-refund": "ENCRYPTION_KEY=test-refund-key-789 OWNER_PUBLIC_KEY=GBQGEXZF36EQBJZ72QC5JEGUHBRI22CGUWEP7OVZA44OAJFFKKIRVDOE node dist/src/escrow-refund.test.js",
 		"test-funding": "node dist/src/funding.test.js",
+		"test-trust-hash": "node dist/src/trust-hash.test.js",
 		"demo-funding": "node dist/src/funding-demo.js",
 		"create-escrow": "node dist/src/cli/create-escrow.js",
 		"build-funding": "node dist/src/cli/build-funding.js",
 		"release-escrow": "node dist/src/cli/release-escrow.js",
+		"anchor-trust-hash": "node dist/src/cli/anchor-trust-hash.js",
+		"check-status": "node dist/src/cli/check-transaction-status.js",
+		"test-tx-status": "node dist/src/transaction-status.test.js",
+		"demo-tx-status": "node dist/src/transaction-status-demo.js",
 		"dev": "npm run build && npm run create-escrow"
 	},
 	"keywords": [

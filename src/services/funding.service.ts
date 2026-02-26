@@ -1,6 +1,7 @@
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { Config } from '../config.js';
 import { StellarService } from '../stellar-service.js';
+import { NetworkGuard } from '../guards/network.guard.js';
 
 export interface FundingTxParams {
   sourceSecret: string;
@@ -25,10 +26,12 @@ export interface TxSubmissionResult {
 export class FundingService {
   private stellarService: StellarService;
   private config: Config;
+  private networkGuard: NetworkGuard;
 
-  constructor(config?: Config) {
+  constructor(config?: Config, networkGuard?: NetworkGuard) {
     this.config = config || Config.getInstance();
-    this.stellarService = new StellarService(this.config);
+    this.networkGuard = networkGuard || NetworkGuard.withPublicConsent(this.config);
+    this.stellarService = new StellarService(this.config, this.networkGuard);
   }
 
   /**
@@ -98,6 +101,9 @@ export class FundingService {
    */
   public async submitTx(transaction: StellarSdk.Transaction): Promise<TxSubmissionResult> {
     try {
+      // Validate network before submission
+      this.networkGuard.validateTransactionSubmission();
+      
       const result = await this.stellarService.getServer().submitTransaction(transaction);
       
       return {

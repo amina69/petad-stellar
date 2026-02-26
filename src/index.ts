@@ -33,8 +33,8 @@ export default class PetAdChain {
     return await this.stellarService.getTransactionStatus(hash);
   }
 
-  public async anchorTrustHash(hash: string): Promise<TrustHashResult> {
-    return await this.stellarService.anchorTrustHash(hash);
+  public async anchorTrustHash(hash: string, sourceSecret: string): Promise<TrustHashResult> {
+    return await this.stellarService.anchorTrustHash(hash, sourceSecret);
   }
 
   public async sendPayment(
@@ -80,4 +80,5 @@ export * from './config.js';
 export * from './stellar-service.js';
 export * from './services/escrow.service.js';
 export * from './services/funding.service.js';
+export * from './services/transaction-status.service.js';
 export * from './contracts/escrow.contract.js';
