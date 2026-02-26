@@ -1,5 +1,6 @@
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { Config } from './config.js';
+import { NetworkGuard } from './guards/network.guard.js';
 
 export interface AccountResult {
   publicKey: string;
@@ -21,10 +22,12 @@ export interface TrustHashResult {
 export class StellarService {
   private server: StellarSdk.Horizon.Server;
   private config: Config;
+  private networkGuard: NetworkGuard;
 
-  constructor(config?: Config) {
+  constructor(config?: Config, networkGuard?: NetworkGuard) {
     this.config = config || Config.getInstance();
     this.server = new StellarSdk.Horizon.Server(this.config.getHorizonUrl());
+    this.networkGuard = networkGuard || NetworkGuard.withPublicConsent(this.config);
   }
 
   public async createAccount(): Promise<AccountResult> {
@@ -57,6 +60,9 @@ export class StellarService {
 
   public async submitTransaction(transaction: StellarSdk.Transaction): Promise<TransactionResult> {
     try {
+      // Validate network before submission
+      this.networkGuard.validateTransactionSubmission();
+      
       const result = await this.server.submitTransaction(transaction);
       
       return {
@@ -146,5 +152,13 @@ export class StellarService {
 
   public getConfig(): Config {
     return this.config;
+  }
+
+  public getNetworkGuard(): NetworkGuard {
+    return this.networkGuard;
+  }
+
+  public getNetworkInfo() {
+    return this.networkGuard.getNetworkInfo();
   }
 }

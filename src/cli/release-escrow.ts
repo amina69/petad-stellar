@@ -26,15 +26,20 @@ async function releaseEscrowFunds(options: ReleaseEscrowOptions) {
 
 	try {
 		// Configure for testnet or mainnet
-		const config = Config.getInstance({
+		const configOptions: Partial<import("../config.js").EnvConfig> = {
 			horizonUrl: testnet
 				? "https://horizon-testnet.stellar.org"
 				: "https://horizon.stellar.org",
 			networkPassphrase: testnet
 				? "Test SDF Network ; September 2015"
 				: "Public Global Stellar Network ; September 2015",
-			custodianPublicKey,
-		});
+		};
+		
+		if (custodianPublicKey) {
+			configOptions.custodianPublicKey = custodianPublicKey;
+		}
+		
+		const config = Config.getInstance(configOptions);
 
 		const escrowService = new EscrowService(config);
 
@@ -51,13 +56,22 @@ async function releaseEscrowFunds(options: ReleaseEscrowOptions) {
 		console.log("⏳ Releasing escrow funds...");
 		const startTime = Date.now();
 
-		const result = await escrowService.releaseEscrowFunds({
+		const releaseParams: import("../services/escrow.service.js").EscrowReleaseParams = {
 			escrowPublicKey,
 			encryptedSecret,
-			encryptionKey,
-			custodianPublicKey,
-			amount,
-		});
+		};
+		
+		if (encryptionKey) {
+			releaseParams.encryptionKey = encryptionKey;
+		}
+		if (custodianPublicKey) {
+			releaseParams.custodianPublicKey = custodianPublicKey;
+		}
+		if (amount) {
+			releaseParams.amount = amount;
+		}
+
+		const result = await escrowService.releaseEscrowFunds(releaseParams);
 
 		const endTime = Date.now();
 		console.log(`✅ Release completed in ${endTime - startTime}ms\n`);
