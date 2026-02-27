@@ -44,35 +44,27 @@ export async function testEscrowRefund() {
 		console.log(`   Refunded: ${refundResult.refunded}`);
 		console.log(`   Idempotent: ${refundResult.idempotent}\n`);
 
-		// Test 2: Idempotency check (balance now depleted – should throw)
+		// Test 2: Idempotency check - refund depleted account
 		console.log(
-			"📝 Test 2: Testing idempotency – refund depleted account (should throw)...",
+			"📝 Test 2: Testing idempotency – refund depleted account...",
 		);
-		try {
-			await escrowService.refundEscrowFunds({
-				escrowPublicKey: escrowAccount.publicKey,
-				encryptedSecret: escrowAccount.encryptedSecret,
-				encryptionKey,
-				ownerPublicKey,
-			});
-			console.log(
-				"❌ Should have thrown an idempotency error for depleted balance!",
-			);
-		} catch (error) {
-			const msg = error instanceof Error ? error.message : "Unknown error";
-			if (msg.includes("Idempotency error") || msg.includes("already depleted")) {
-				console.log(
-					"✅ Correctly threw idempotency error for depleted balance!",
-				);
-				console.log(`   Error: ${msg}\n`);
-			} else {
-				console.log(`✅ Correctly blocked second refund with error: ${msg}\n`);
-			}
+		const secondRefundResult = await escrowService.refundEscrowFunds({
+			escrowPublicKey: escrowAccount.publicKey,
+			encryptedSecret: escrowAccount.encryptedSecret,
+			encryptionKey,
+			ownerPublicKey,
+		});
+
+		if (secondRefundResult.successful && secondRefundResult.idempotent) {
+			console.log("✅ Correctly returned idempotent success response!");
+			console.log(`   Transaction Hash: ${secondRefundResult.txHash}\n`);
+		} else {
+			console.log("❌ Should have returned an idempotent success response!\n");
 		}
 
 		// Test 3: isEscrowRefunded helper
 		console.log("📝 Test 3: Testing isEscrowRefunded helper...");
-		const alreadyRefunded = escrowService.isEscrowRefunded(refundResult.txHash);
+		const alreadyRefunded = await escrowService.isEscrowRefunded(escrowAccount.publicKey);
 		if (alreadyRefunded) {
 			console.log(
 				"✅ isEscrowRefunded correctly returns true for processed refund!\n",

@@ -136,9 +136,7 @@ async function testEscrowRelease() {
 		if (!custodianKey) {
 			throw new Error('CUSTODIAN_PUBLIC_KEY is required');
 		}
-			throw new Error("Custodian public key not configured");
-		}
-		
+
 		const releaseResult = await escrowService.releaseEscrowFunds({
 			escrowPublicKey: escrowAccount.publicKey,
 			encryptedSecret: escrowAccount.encryptedSecret,

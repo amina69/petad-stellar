@@ -1,4 +1,3 @@
-import { testEscrowRelease } from "./escrow.test.js";
 import { EscrowService } from "./services/escrow.service.js";
 import { Config } from "./config.js";
 
@@ -18,7 +17,7 @@ async function testEscrowRelease() {
 		horizonUrl: "https://horizon-testnet.stellar.org",
 		networkPassphrase: "Test SDF Network ; September 2015",
 	};
-	
+
 	if (custodianPublicKey) {
 		configOptions.custodianPublicKey = custodianPublicKey;
 	}
