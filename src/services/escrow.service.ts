@@ -49,8 +49,6 @@ export class EscrowService {
 	private stellarService: StellarService;
 	private config: Config;
 	private networkGuard: NetworkGuard;
-	private releasedTransactions: Set<string> = new Set();
-	private refundedTransactions: Set<string> = new Set();
 
 	constructor(config?: Config, networkGuard?: NetworkGuard) {
 		this.config = config || Config.getInstance();
@@ -222,6 +220,52 @@ export class EscrowService {
 	}
 
 	/**
+	 * Checks if an escrow account has already released funds to the custodian
+	 * @returns The transaction hash if a release exists, null otherwise
+	 */
+	private async checkOnChainRelease(escrowPublicKey: string, custodianPublicKey: string): Promise<string | null> {
+		try {
+			const server = this.stellarService.getServer();
+			const payments = await server.payments().forAccount(escrowPublicKey).order('desc').limit(20).call();
+
+			for (const record of payments.records) {
+				if (
+					record.type === 'payment' &&
+					record.source_account === escrowPublicKey &&
+					(record as any).to === custodianPublicKey
+				) {
+					return record.transaction_hash;
+				}
+			}
+			return null;
+		} catch (error) {
+			console.warn(`Failed to check on-chain release history: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			return null;
+		}
+	}
+
+	/**
+	 * Checks if an escrow account has already been refunded to the owner
+	 * @returns The transaction hash if a refund exists, null otherwise
+	 */
+	private async checkOnChainRefund(escrowPublicKey: string): Promise<string | null> {
+		try {
+			const server = this.stellarService.getServer();
+			const transactions = await server.transactions().forAccount(escrowPublicKey).order('desc').limit(20).call();
+
+			for (const record of transactions.records) {
+				if (record.memo === 'REFUND' && record.source_account === escrowPublicKey) {
+					return record.hash;
+				}
+			}
+			return null;
+		} catch (error) {
+			console.warn(`Failed to check on-chain refund history: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			return null;
+		}
+	}
+
+	/**
 	 * Releases funds from escrow account to custodian
 	 * Enforces single-release rule with idempotency check
 	 */
@@ -256,13 +300,23 @@ export class EscrowService {
 					.filter((balance: any) => balance.asset_type === "native")
 					.map((balance: any) => balance.balance)[0] || "0";
 
-			// Calculate amount to release (all available XLM minus minimum reserve)
+			// Calculate amount to release (all available XLM minus minimum reserve minus tx fee)
 			const minimumReserve = "1.0"; // 1 XLM minimum reserve
+			const baseFee = 0.00001; // 100 stroops
 			const availableBalance = (
-				parseFloat(xlmBalance) - parseFloat(minimumReserve)
+				parseFloat(xlmBalance) - parseFloat(minimumReserve) - baseFee
 			).toFixed(7);
 
 			if (parseFloat(availableBalance) <= 0) {
+				const existingTxHash = await this.checkOnChainRelease(escrowPublicKey, custodianPublicKey);
+				if (existingTxHash) {
+					return {
+						txHash: existingTxHash,
+						successful: true,
+						released: false, // Already released
+					};
+				}
+
 				throw new Error(
 					"Insufficient funds in escrow account. Available balance must be greater than minimum reserve.",
 				);
@@ -277,25 +331,8 @@ export class EscrowService {
 				releaseAmount,
 			);
 
-			// Generate transaction hash for idempotency check
-			const txHash = transaction.hash().toString("hex");
-
-			// Idempotency check: ensure this escrow hasn't been released before
-			if (this.releasedTransactions.has(txHash)) {
-				return {
-					txHash,
-					successful: true,
-					released: false, // Already released
-				};
-			}
-
 			// Submit the transaction
 			const result = await this.stellarService.submitTransaction(transaction);
-
-			// Mark as released if successful
-			if (result.successful) {
-				this.releasedTransactions.add(txHash);
-			}
 
 			return {
 				txHash: result.hash,
@@ -345,14 +382,24 @@ export class EscrowService {
 					.filter((balance: any) => balance.asset_type === "native")
 					.map((balance: any) => balance.balance)[0] || "0";
 
-			// Minimum reserve required to keep the account open
+			// Minimum reserve required to keep the account open plus tx fee
 			const minimumReserve = "1.0"; // 1 XLM
+			const baseFee = 0.00001;
 			const availableBalance = (
-				parseFloat(xlmBalance) - parseFloat(minimumReserve)
+				parseFloat(xlmBalance) - parseFloat(minimumReserve) - baseFee
 			).toFixed(7);
 
 			// If the balance is already depleted this is a duplicate refund attempt
 			if (parseFloat(availableBalance) <= 0) {
+				const existingTxHash = await this.checkOnChainRefund(escrowPublicKey);
+				if (existingTxHash) {
+					return {
+						txHash: existingTxHash,
+						successful: true,
+						refunded: false,
+						idempotent: true,
+					};
+				}
 				throw new Error(
 					"Idempotency error: escrow account balance is already depleted. Refund has likely already been processed.",
 				);
@@ -379,26 +426,8 @@ export class EscrowService {
 			// Sign with the escrow account's secret key
 			transaction.sign(escrowKeypair);
 
-			// Generate deterministic transaction hash
-			const txHash = transaction.hash().toString("hex");
-
-			// Idempotency check: ensure this exact refund tx hasn't been submitted before
-			if (this.refundedTransactions.has(txHash)) {
-				return {
-					txHash,
-					successful: true,
-					refunded: false,
-					idempotent: true,
-				};
-			}
-
 			// Submit the refund transaction
 			const result = await this.stellarService.submitTransaction(transaction);
-
-			// Record the refund to prevent duplicates
-			if (result.successful) {
-				this.refundedTransactions.add(txHash);
-			}
 
 			return {
 				txHash: result.hash,
@@ -408,8 +437,7 @@ export class EscrowService {
 			};
 		} catch (error) {
 			throw new Error(
-				`Failed to refund escrow funds: ${
-					error instanceof Error ? error.message : "Unknown error"
+				`Failed to refund escrow funds: ${error instanceof Error ? error.message : "Unknown error"
 				}`,
 			);
 		}
@@ -418,15 +446,17 @@ export class EscrowService {
 	/**
 	 * Checks if an escrow account has already been refunded
 	 */
-	public isEscrowRefunded(txHash: string): boolean {
-		return this.refundedTransactions.has(txHash);
+	public async isEscrowRefunded(escrowPublicKey: string): Promise<boolean> {
+		const hash = await this.checkOnChainRefund(escrowPublicKey);
+		return !!hash;
 	}
 
 	/**
 	 * Checks if an escrow account has already been released
 	 */
-	public isEscrowReleased(txHash: string): boolean {
-		return this.releasedTransactions.has(txHash);
+	public async isEscrowReleased(escrowPublicKey: string, custodianPublicKey: string): Promise<boolean> {
+		const hash = await this.checkOnChainRelease(escrowPublicKey, custodianPublicKey);
+		return !!hash;
 	}
 
 	/**

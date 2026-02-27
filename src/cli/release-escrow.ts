@@ -41,11 +41,11 @@ async function releaseEscrowFunds(options: ReleaseEscrowOptions) {
 				? "Test SDF Network ; September 2015"
 				: "Public Global Stellar Network ; September 2015",
 		};
-		
+
 		if (custodianPublicKey) {
 			configOptions.custodianPublicKey = custodianPublicKey;
 		}
-		
+
 		const config = Config.getInstance(configOptions);
 
 		const escrowService = new EscrowService(config);
@@ -63,17 +63,11 @@ async function releaseEscrowFunds(options: ReleaseEscrowOptions) {
 		console.log("⏳ Releasing escrow funds...");
 		const startTime = Date.now();
 
-		const releaseParams: any = {
-			escrowPublicKey,
-			encryptedSecret,
-			encryptionKey,
-			custodianPublicKey,
-		};
 		const releaseParams: import("../services/escrow.service.js").EscrowReleaseParams = {
 			escrowPublicKey,
 			encryptedSecret,
 		};
-		
+
 		if (encryptionKey) {
 			releaseParams.encryptionKey = encryptionKey;
 		}
