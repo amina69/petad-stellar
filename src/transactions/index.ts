@@ -1,1 +1,1 @@
-// transactions module — to be implemented
+export function buildMultisigTransaction(...args: any[]): any {}
