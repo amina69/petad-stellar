@@ -2,7 +2,7 @@
 
 ## Rules
 
-0. Create branch from develop and always make PR to develop not masters
+0. Create branch from develop and always make PR to develop not main
 1. Every new public function needs tests: happy path, validation, errors, idempotency, edge cases.
 2. `npm run test:cov` must pass (lines ≥90%, branches ≥90%, functions ≥95%) before opening a PR.
 3. `npm run lint` and `npm run type-check` must be clean.
