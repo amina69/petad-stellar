@@ -1,0 +1,62 @@
+{
+  "name": "@petad/stellar-sdk",
+  "version": "0.1.0",
+  "description": "Blockchain infrastructure SDK for PetAd",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prebuild": "rm -rf dist",
+    "test": "jest --testPathPattern=tests/unit --passWithNoTests",
+    "test:cov": "jest --testPathPattern=tests/unit --coverage --passWithNoTests",
+    "test:watch": "jest --testPathPattern=tests/unit --watch",
+    "test:integration": "jest --testPathPattern=tests/integration --runInBand --forceExit --passWithNoTests",
+    "lint": "eslint src/ tests/ --ext .ts",
+    "lint:fix": "eslint src/ tests/ --ext .ts --fix",
+    "format": "prettier --write src/ tests/",
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "npm run lint && npm run type-check && npm run build"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^12.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.0.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.57.1",
+    "@typescript-eslint/parser": "^8.57.1",
+    "eslint": "^8.0.0",
+    "jest": "^29.0.0",
+    "msw": "^2.0.0",
+    "prettier": "^3.0.0",
+    "ts-jest": "^29.0.0",
+    "typescript": "^5.0.0"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "coverageThreshold": {
+      "global": {
+        "branches": 90,
+        "functions": 95,
+        "lines": 90,
+        "statements": 90
+      }
+    },
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "json-summary"
+    ]
+  }
+}
