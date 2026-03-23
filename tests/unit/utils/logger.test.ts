@@ -76,7 +76,7 @@ describe('Logger', () => {
   });
 
   it('outputs valid JSON for every log level', () => {
-    const log = new Logger();
+    
 
     const outputs: string[] = [];
     const stdoutOriginal = process.stdout.write.bind(process.stdout);
