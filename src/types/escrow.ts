@@ -80,3 +80,14 @@ export interface ReleaseResult {
   ledger: number;
   payments: ReleasedPayment[];
 }
+
+export interface DisputeParams {
+  escrowAccountId: string;
+}
+
+export interface DisputeResult {
+  accountId:        string;
+  pausedAt:         Date;
+  platformOnlyMode: true;
+  txHash:           string;
+}
