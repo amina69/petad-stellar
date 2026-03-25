@@ -1,2 +1,13 @@
 export const SDK_VERSION = '0.1.0';
-// Exports will be added here as each module is implemented
+export { AccountManager } from './accounts';
+export type {
+  AccountManagerConfig,
+  ConfigureMultisigOptions,
+  CreateAccountOptions,
+  HorizonClient,
+  MergeAccountOptions,
+  StellarNetwork,
+} from './accounts';
+export type { AccountInfo, BalanceInfo, KeypairResult, SDKConfig, Signer, Thresholds } from './types/network';
+export type { SubmitResult, TransactionStatus } from './types/transaction';
+export * from './utils/errors';
