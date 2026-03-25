@@ -11,6 +11,7 @@ export interface CreateEscrowParams {
   metadata?: { adoptionId: string; petId: string };
 }
 
+
 export interface EscrowAccount {
   accountId: string;
   transactionHash: string;
