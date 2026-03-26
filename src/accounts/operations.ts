@@ -1,5 +1,4 @@
 import {
-  Account,
   BASE_FEE,
   Horizon,
   Keypair,
