@@ -6,3 +6,11 @@ export function lockCustodyFunds(..._args: unknown[]): unknown { return undefine
 export function anchorTrustHash(..._args: unknown[]): unknown { return undefined; }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function verifyEventHash(..._args: unknown[]): unknown { return undefined; }
+
+export { EscrowManager } from './escrow-manager';
+export type {
+  EscrowManagerDeps,
+  IHorizonClient,
+  IAccountManager,
+  ITransactionManager,
+} from './types';

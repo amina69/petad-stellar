@@ -28,7 +28,11 @@ export type { SDKConfig, KeypairResult, AccountInfo, BalanceInfo } from './types
 // 5. Transaction types
 export type { SubmitResult, TransactionStatus } from './types/transaction';
 
-// 6. Standalone functions
+// 6. EscrowManager class
+export { EscrowManager } from './escrow';
+export type { EscrowManagerDeps, IHorizonClient, IAccountManager, ITransactionManager } from './escrow';
+
+// 7. Standalone functions
 export { createEscrowAccount, lockCustodyFunds, anchorTrustHash, verifyEventHash } from './escrow';
 export { buildMultisigTransaction } from './transactions';
 export { getMinimumReserve } from './accounts';
