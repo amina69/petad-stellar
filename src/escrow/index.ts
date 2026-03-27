@@ -38,6 +38,7 @@ type HorizonAccount = Account & {
   balances: Array<{ asset_type: string; balance: string }>;
   accountId(): string;
 };
+type SubmissionTransaction = Parameters<Horizon.Server['submitTransaction']>[0];
 
 interface HorizonSubmission {
   successful: boolean;
@@ -47,11 +48,16 @@ interface HorizonSubmission {
 
 interface ReleaseServer {
   loadAccount(accountId: string): Promise<HorizonAccount>;
-  submitTransaction(transaction: unknown): Promise<HorizonSubmission>;
+  submitTransaction(transaction: SubmissionTransaction): Promise<HorizonSubmission>;
+}
+
+interface ReleaseTransactionManager {
+  submit(transaction: SubmissionTransaction): Promise<HorizonSubmission>;
 }
 
 interface ReleaseFundsDependencies {
   server?: ReleaseServer;
+  transactionManager?: ReleaseTransactionManager;
   sleep?: (ms: number) => Promise<void>;
   horizonUrl?: string;
   networkPassphrase?: string;
@@ -105,6 +111,10 @@ function validateReleaseParams(params: ReleaseParams): void {
 
   if (params.balance !== undefined && !isValidAmount(params.balance)) {
     throw new ValidationError('balance', 'Release balance must be a positive XLM amount');
+  }
+
+  if (params.masterSecretKey !== undefined && !isValidSecretKey(params.masterSecretKey)) {
+    throw new ValidationError('masterSecretKey', 'Invalid master secret key');
   }
 
   if (params.sourceSecretKey !== undefined && !isValidSecretKey(params.sourceSecretKey)) {
@@ -182,20 +192,23 @@ function getDefaultHorizonUrl(): string {
     : TESTNET_HORIZON_URL;
 }
 
-function getSourceSecretKey(params: ReleaseParams): string {
-  const sourceSecretKey = params.sourceSecretKey ?? process.env.MASTER_SECRET_KEY;
-  if (!sourceSecretKey) {
+function getMasterSecretKey(params: ReleaseParams): string {
+  const masterSecretKey =
+    params.masterSecretKey ??
+    params.sourceSecretKey ??
+    process.env.MASTER_SECRET_KEY;
+  if (!masterSecretKey) {
     throw new ValidationError(
-      'sourceSecretKey',
-      'A source secret key is required to sign the release transaction',
+      'masterSecretKey',
+      'A master secret key is required to sign the release transaction',
     );
   }
 
-  if (!isValidSecretKey(sourceSecretKey)) {
-    throw new ValidationError('sourceSecretKey', 'Invalid source secret key');
+  if (!isValidSecretKey(masterSecretKey)) {
+    throw new ValidationError('masterSecretKey', 'Invalid master secret key');
   }
 
-  return sourceSecretKey;
+  return masterSecretKey;
 }
 
 function mapToSdkError(error: unknown, escrowAccountId: string): SdkError {
@@ -242,14 +255,14 @@ async function loadEscrowAccount(
 }
 
 async function submitReleaseTransaction(
-  server: Pick<ReleaseServer, 'submitTransaction'>,
+  transactionManager: ReleaseTransactionManager,
   account: HorizonAccount,
   params: ReleaseParams,
   payments: PaymentOp[],
   networkPassphrase: string,
 ): Promise<ReleaseResult> {
-  const sourceSecretKey = getSourceSecretKey(params);
-  const sourceKeypair = Keypair.fromSecret(sourceSecretKey);
+  const masterSecretKey = getMasterSecretKey(params);
+  const platformKeypair = Keypair.fromSecret(masterSecretKey);
   const fee = params.fee ?? process.env.MAX_FEE ?? String(DEFAULT_MAX_FEE);
   const timeoutSeconds = params.timeoutSeconds ?? DEFAULT_TRANSACTION_TIMEOUT;
 
@@ -267,10 +280,10 @@ async function submitReleaseTransaction(
 
   const transaction = builder.setTimeout(timeoutSeconds).build();
 
-  transaction.sign(sourceKeypair);
+  transaction.sign(platformKeypair);
 
   try {
-    const submission = await server.submitTransaction(transaction);
+    const submission = await transactionManager.submit(transaction);
     return {
       successful: submission.successful,
       txHash: submission.hash,
@@ -320,6 +333,11 @@ export async function releaseFunds(
     new Horizon.Server(dependencies.horizonUrl ?? getDefaultHorizonUrl());
   const networkPassphrase =
     dependencies.networkPassphrase ?? getDefaultNetworkPassphrase();
+  const transactionManager =
+    dependencies.transactionManager ?? {
+      submit: (transaction: SubmissionTransaction) =>
+        server.submitTransaction(transaction),
+    };
   const maxSubmitAttempts = dependencies.maxSubmitAttempts ?? 2;
   const sleep = dependencies.sleep ?? (async () => undefined);
 
@@ -335,7 +353,7 @@ export async function releaseFunds(
       );
 
       return await submitReleaseTransaction(
-        server,
+        transactionManager,
         account,
         { ...params, balance: releaseBalance },
         payments,

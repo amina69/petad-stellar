@@ -67,6 +67,7 @@ export interface ReleaseParams {
   escrowAccountId: string;
   distribution: Distribution[];
   balance?: string;
+  masterSecretKey?: string;
   sourceSecretKey?: string;
   memo?: string;
   fee?: string;
