@@ -47,4 +47,4 @@ export {
   verifyEventHash,
 } from './escrow';
 export { buildMultisigTransaction } from './transactions';
-export { getMinimumReserve } from './accounts';
+export { getMinimumReserve, generateKeypair } from './accounts';
