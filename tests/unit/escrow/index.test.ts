@@ -6,6 +6,8 @@ import {
   anchorTrustHash,
   verifyEventHash,
 } from '../../../src/escrow';
+import { InsufficientBalanceError, ValidationError } from '../../../src/utils/errors';
+import { CreateEscrowParams } from '../../../src/types/escrow';
 
 describe('escrow memo encoding', () => {
   it('uses MEMO_TEXT when short IDs fit within the 28-byte memo text limit', () => {

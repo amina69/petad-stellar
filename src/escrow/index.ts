@@ -84,8 +84,11 @@ export function createEscrowAccount(params?: CreateEscrowParams): { memo?: Escro
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function lockCustodyFunds(..._args: unknown[]): unknown { return undefined; }
+export function anchorTrustHash(..._args: unknown[]): unknown {
+  return undefined;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function anchorTrustHash(..._args: unknown[]): unknown { return undefined; }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function verifyEventHash(..._args: unknown[]): unknown { return undefined; }
+export function verifyEventHash(..._args: unknown[]): unknown {
+  return undefined;
+}
