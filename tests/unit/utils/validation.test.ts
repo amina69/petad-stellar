@@ -64,4 +64,17 @@ describe('isValidDistribution', () => {
       { recipient: VALID_KEY_G, percentage: 101 },
     ])).toBe(false);
   });
+
+  it('handles scientific notation in percentages', () => {
+    // 1.0e2 is 100
+    expect(isValidDistribution([
+      { recipient: VALID_KEY_G, percentage: 1.0e2 },
+    ])).toBe(true);
+
+    // 5.0e1 + 5.0e1 = 50 + 50 = 100
+    expect(isValidDistribution([
+      { recipient: VALID_KEY_G, percentage: 5.0e1 },
+      { recipient: VALID_KEY_G, percentage: 5.0e1 },
+    ])).toBe(true);
+  });
 });
