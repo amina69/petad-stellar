@@ -1,85 +1,50 @@
-import * as StellarSdk from '@stellar/stellar-sdk';
-import { Config, EnvConfig } from './config.js';
-import { StellarService, AccountResult, TransactionResult, TrustHashResult } from './stellar-service.js';
+export const SDK_VERSION = '0.1.0';
 
-export interface PetAdChainConfig {
-  envConfig?: Partial<EnvConfig>;
-  useTestnet?: boolean;
-}
+// 1. Main class
+export { StellarSDK } from './sdk';
+export { StellarSDK as default } from './sdk';
 
-export default class PetAdChain {
-  private stellarService: StellarService;
-  private config: Config;
+// 2. Error classes
+export {
+  SdkError,
+  ValidationError,
+  AccountNotFoundError,
+  EscrowNotFoundError,
+  InsufficientBalanceError,
+  HorizonSubmitError,
+  TransactionTimeoutError,
+  MonitorTimeoutError,
+  FriendbotError,
+  ConditionMismatchError,
+} from './utils/errors';
 
-  constructor(config?: PetAdChainConfig) {
-    this.config = Config.getInstance(config?.envConfig);
-    
-    if (config?.useTestnet !== undefined) {
-      this.config.setNetwork(config.useTestnet);
-    }
-    
-    this.stellarService = new StellarService(this.config);
-  }
+// 3. Escrow types (canonical source for Signer + Thresholds)
+export type {
+  CreateEscrowParams,
+  Signer,
+  Thresholds,
+  EscrowAccount,
+  Distribution,
+  ReleaseParams,
+  ReleasedPayment,
+  ReleaseResult,
+  Percentage,
+} from './types/escrow';
+export { EscrowStatus, asPercentage } from './types/escrow';
 
-  public async createAccount(): Promise<AccountResult> {
-    return await this.stellarService.createAccount();
-  }
+// 4. Network types (Signer + Thresholds excluded to avoid conflict)
+export type { SDKConfig, KeypairResult, AccountInfo, BalanceInfo } from './types/network';
 
-  public async submitTransaction(transaction: StellarSdk.Transaction): Promise<TransactionResult> {
-    return await this.stellarService.submitTransaction(transaction);
-  }
+// 5. Transaction types
+export type { SubmitResult, TransactionStatus } from './types/transaction';
 
-  public async getTransactionStatus(hash: string): Promise<TransactionResult> {
-    return await this.stellarService.getTransactionStatus(hash);
-  }
-
-  public async anchorTrustHash(hash: string): Promise<TrustHashResult> {
-    return await this.stellarService.anchorTrustHash(hash);
-  }
-
-  public async sendPayment(
-    sourceSecret: string,
-    destinationPublicKey: string,
-    amount: string,
-    asset?: StellarSdk.Asset
-  ): Promise<TransactionResult> {
-    const transaction = await this.stellarService.buildPaymentTransaction(
-      sourceSecret,
-      destinationPublicKey,
-      amount,
-      asset
-    );
-    
-    return await this.submitTransaction(transaction);
-  }
-
-  public getStellarService(): StellarService {
-    return this.stellarService;
-  }
-
-  public getConfig(): Config {
-    return this.config;
-  }
-
-  public switchToTestnet(): void {
-    this.config.setNetwork(true);
-    this.stellarService = new StellarService(this.config);
-  }
-
-  public switchToMainnet(): void {
-    this.config.setNetwork(false);
-    this.stellarService = new StellarService(this.config);
-  }
-
-  public isTestnet(): boolean {
-    return this.config.isTestnet();
-  }
-}
-
-export * from './config.js';
-export * from './stellar-service.js';
-export * from './services/escrow.service.js';
-export * from './services/funding.service.js';
-export * from './contracts/escrow.contract.js';
-export * from './accounts/keypair.js';
-export * from './accounts/friendbot.js';
+// 6. Standalone functions
+export {
+  createEscrowAccount,
+  calculateStartingBalance,
+  lockCustodyFunds,
+  anchorTrustHash,
+  verifyEventHash,
+} from './escrow';
+export { buildMultisigTransaction } from './transactions';
+export { getMinimumReserve, generateKeypair } from './accounts';

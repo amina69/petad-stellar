@@ -1,4 +1,39 @@
+# node_modules/
+# package-lock.json
+# dist/
+# .env
+
+
+# # Compiled files in source directories
+# src/**/*.js
+# src/**/*.js.map
+# src/**/*.d.ts
+# src/**/*.d.ts.map
+# tests/**/*.js
+# tests/**/*.js.map
+# tests/**/*.d.ts
+# tests/**/*.d.ts.map
+# scripts/**/*.js
+# scripts/**/*.js.map
+# scripts/**/*.d.ts
+# scripts/**/*.d.ts.map
+
+
 node_modules/
-package-lock.json
 dist/
+coverage/
 .env
+*.env.local
+*.env.*.local
+ 
+# OS
+.DS_Store
+Thumbs.db
+ 
+# IDE
+.vscode/
+.idea/
+*.swp
+ 
+# Test artifacts
+test-results/
