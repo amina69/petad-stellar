@@ -8,7 +8,7 @@ import {
 } from '../../../src/escrow';
 
 describe('escrow memo encoding', () => {
-  it('uses MEMO_TEXT when the base64-encoded metadata fits within 28 bytes', () => {
+  it('uses MEMO_TEXT when short IDs fit within the 28-byte memo text limit', () => {
     const data = { adoptionId: 'a', petId: 'b' };
 
     const memo = encodeMemo(data);
@@ -18,7 +18,7 @@ describe('escrow memo encoding', () => {
     expect(decodeMemo(memo)).toEqual(data);
   });
 
-  it('uses MEMO_HASH when the base64-encoded metadata exceeds 28 bytes', () => {
+  it('uses MEMO_HASH when long IDs exceed the 28-byte memo text limit', () => {
     const data = {
       adoptionId: 'adoption-id-that-is-too-long-for-memo-text',
       petId: 'pet-id-that-is-also-too-long',

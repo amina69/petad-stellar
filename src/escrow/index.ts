@@ -20,7 +20,7 @@ export interface EscrowMemoHash {
 export type EscrowMemo = EscrowMemoText | EscrowMemoHash;
 
 const MEMO_TEXT_LIMIT_BYTES = 28;
-const memoHashLookup = new Map<string, EscrowMemoData>();
+const memoHashLookup = new Map<string, string>();
 
 function serializeMemoData(data: EscrowMemoData): string {
   return JSON.stringify({
@@ -31,6 +31,10 @@ function serializeMemoData(data: EscrowMemoData): string {
 
 function getMemoHashLookupKey(hashValue: Buffer): string {
   return hashValue.toString('hex');
+}
+
+function deserializeMemoData(serialized: string): EscrowMemoData {
+  return JSON.parse(serialized) as EscrowMemoData;
 }
 
 export function encodeMemo(data: EscrowMemoData): EscrowMemo {
@@ -46,7 +50,7 @@ export function encodeMemo(data: EscrowMemoData): EscrowMemo {
 
   const hashValue = createHash('sha256').update(serialized, 'utf8').digest();
 
-  memoHashLookup.set(getMemoHashLookupKey(hashValue), data);
+  memoHashLookup.set(getMemoHashLookupKey(hashValue), serialized);
 
   return {
     type: 'MEMO_HASH',
@@ -57,16 +61,16 @@ export function encodeMemo(data: EscrowMemoData): EscrowMemo {
 export function decodeMemo(memo: EscrowMemo): EscrowMemoData {
   if (memo.type === 'MEMO_TEXT') {
     const serialized = Buffer.from(memo.value, 'base64').toString('utf8');
-    return JSON.parse(serialized) as EscrowMemoData;
+    return deserializeMemoData(serialized);
   }
 
-  const decoded = memoHashLookup.get(getMemoHashLookupKey(memo.value));
+  const serialized = memoHashLookup.get(getMemoHashLookupKey(memo.value));
 
-  if (!decoded) {
+  if (!serialized) {
     throw new Error('Unable to decode MEMO_HASH without a matching encoded payload.');
   }
 
-  return decoded;
+  return deserializeMemoData(serialized);
 }
 
 export function createEscrowAccount(params?: CreateEscrowParams): { memo?: EscrowMemo } {
