@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- `isValidAmount()` validator: validates positive Stellar amount strings with up to 7 decimal places and rejects scientific notation (`src/utils/validation.ts`)
 - `getMinimumReserve()` utility to calculate the minimum XLM balance required for an account based on signers, offers, and trustlines (`src/accounts/keypair.ts`)
 - `Percentage` branded type: compile-time guarantee that a number is validated to [0, 100] (`src/types/escrow.ts`)
 - `asPercentage()` runtime guard: validates and casts a number to `Percentage`, throws `RangeError` on NaN, Infinity, or out-of-range values (`src/types/escrow.ts`)
