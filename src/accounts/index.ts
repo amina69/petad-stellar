@@ -1,1 +1,1 @@
-export { getMinimumReserve } from './keypair';
+export { getMinimumReserve, generateKeypair } from './keypair';
