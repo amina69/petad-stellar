@@ -1,4 +1,4 @@
-import { generateKeypair, KeypairResult } from '../src/accounts/keypair.js';
+import { generateKeypair } from '../src/accounts/keypair.js';
 import * as StellarSdk from '@stellar/stellar-sdk';
 
 async function testKeypairGeneration() {
@@ -65,7 +65,7 @@ async function testKeypairGeneration() {
     const keypair3 = generateKeypair();
     
     // Verify the object has the expected properties
-    if (!keypair3.hasOwnProperty('publicKey') || !keypair3.hasOwnProperty('secretKey')) {
+    if (!keypair3.publicKey || !keypair3.secretKey) {
       throw new Error('KeypairResult missing required properties');
     }
     
