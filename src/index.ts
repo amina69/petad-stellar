@@ -82,3 +82,4 @@ export * from './services/escrow.service.js';
 export * from './services/funding.service.js';
 export * from './contracts/escrow.contract.js';
 export * from './accounts/keypair.js';
+export * from './accounts/friendbot.js';
