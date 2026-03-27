@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+###Added
+Add this block at the top of `## [Unreleased]`, before the existing entries:
+
+```markdown
+- `lockCustodyFunds()`: locks a deposit in a custody escrow with configurable duration and conditions hash (`src/escrow/lockCustodyFunds.ts`)
+  - Validates `custodianPublicKey`, `ownerPublicKey`, `platformPublicKey`, `depositAmount`, `durationDays`
+  - Computes `conditionsHash` via SHA-256 of sorted `{ noViolations, petReturned }` conditions object
+  - Computes `unlockDate` as `now + durationDays * 86400000ms`
+  - Builds a Stellar transaction: `createAccount` + 3× `setOptions` (custodian, owner, platform as signers; master weight 0; 2-of-3 thresholds)
+  - Encodes first 28 chars of `conditionsHash` as TEXT memo
+  - Returns `LockResult` with `unlockDate`, `conditionsHash`, `transaction`, `escrowPublicKey`, `signers`, `thresholds`
+- `hashData()`: deterministic SHA-256 helper for conditions objects, exported from `src/escrow/lockCustodyFunds.ts`
+- `LockCustodyFundsParams` and `LockResult` types exported from `src/escrow`
+- Unit tests for `lockCustodyFunds()`: unlockDate calculation, conditionsHash determinism, memo encoding, input validation, transaction structure, signers/thresholds (`tests/unit/escrow/lockCustodyFunds.test.ts`)
+```
+
 ### Added
 - `getMinimumReserve()` utility to calculate the minimum XLM balance required for an account based on signers, offers, and trustlines (`src/accounts/keypair.ts`)
 - `Percentage` branded type: compile-time guarantee that a number is validated to [0, 100] (`src/types/escrow.ts`)
