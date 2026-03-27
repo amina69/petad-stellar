@@ -9,7 +9,9 @@
     "test": "node dist/src/escrow.test.js",
     "test-escrow": "ENCRYPTION_KEY=test-key-123 node dist/src/escrow.test.js",
     "test-funding": "node dist/src/funding.test.js",
+    "test-keypair": "node dist/tests/keypair.test.js",
     "demo-funding": "node dist/src/funding-demo.js",
+    "demo-keypair": "node dist/src/cli/keypair-demo.js",
     "create-escrow": "node dist/src/cli/create-escrow.js",
     "build-funding": "node dist/src/cli/build-funding.js",
     "dev": "npm run build && npm run create-escrow"
