@@ -1,47 +1,40 @@
 import {
   createEscrowAccount,
   calculateStartingBalance,
-  lockCustodyFunds,
   anchorTrustHash,
   verifyEventHash,
 } from '../../../src/escrow';
-import { InsufficientBalanceError, ValidationError } from '../../../src/utils/errors';
+import { ValidationError } from '../../../src/utils/errors';
 import { CreateEscrowParams } from '../../../src/types/escrow';
+import { InsufficientBalanceError } from '../../../src/utils/errors';
 
 describe('calculateStartingBalance', () => {
   describe('happy path', () => {
     it('calculates starting balance with 10 XLM deposit', () => {
-      // minimumReserve(3,0,0) = 2.5 XLM + 10 XLM deposit = 12.5 XLM
       expect(calculateStartingBalance('10')).toBe('12.5');
     });
 
     it('calculates starting balance with 100 XLM deposit', () => {
-      // 2.5 + 100 = 102.5
       expect(calculateStartingBalance('100')).toBe('102.5');
     });
 
     it('calculates starting balance with 0.5 XLM deposit', () => {
-      // 2.5 + 0.5 = 3.0
       expect(calculateStartingBalance('0.5')).toBe('3');
     });
 
     it('calculates starting balance with 1 XLM deposit', () => {
-      // 2.5 + 1 = 3.5
       expect(calculateStartingBalance('1')).toBe('3.5');
     });
 
     it('calculates starting balance with 0.0000001 XLM deposit (smallest unit)', () => {
-      // 2.5 + 0.0000001 = 2.5000001
       expect(calculateStartingBalance('0.0000001')).toBe('2.5000001');
     });
 
     it('calculates starting balance with 10000 XLM deposit', () => {
-      // 2.5 + 10000 = 10002.5
       expect(calculateStartingBalance('10000')).toBe('10002.5');
     });
 
     it('handles decimal amounts with 7 decimal precision', () => {
-      // 2.5 + 1.2345678 = 3.7345678 -> 3.7345678 (max 7 decimals)
       expect(calculateStartingBalance('1.2345678')).toBe('3.7345678');
     });
   });
@@ -97,7 +90,7 @@ describe('createEscrowAccount', () => {
 
       expect(mockAccountManager.create).toHaveBeenCalledWith({
         publicKey: expect.any(String),
-        startingBalance: '12.5', // 2.5 minimum + 10 deposit
+        startingBalance: '12.5',
       });
 
       expect(result.accountId).toBe('GXXX123456789');
@@ -128,12 +121,11 @@ describe('createEscrowAccount', () => {
         transactionHash: 'abc123def456',
       });
 
-      // Test with 50 XLM deposit
       await createEscrowAccount({ ...validParams, depositAmount: '50' }, mockAccountManager);
 
       expect(mockAccountManager.create).toHaveBeenCalledWith({
         publicKey: expect.any(String),
-        startingBalance: '52.5', // 2.5 + 50
+        startingBalance: '52.5',
       });
     });
   });
@@ -191,8 +183,7 @@ describe('createEscrowAccount', () => {
 });
 
 describe('placeholder functions', () => {
-  it('exports callable placeholder functions', () => {
-    expect(lockCustodyFunds()).toBeUndefined();
+  it('anchorTrustHash and verifyEventHash are callable stubs', () => {
     expect(anchorTrustHash()).toBeUndefined();
     expect(verifyEventHash()).toBeUndefined();
   });
