@@ -3,6 +3,7 @@ export const SDK_VERSION = '0.1.0';
 // 1. Main class
 export { StellarSDK } from './sdk';
 export { StellarSDK as default } from './sdk';
+export type { StellarSDKConfig } from './sdk';
 
 // 2. Error classes
 export {
@@ -38,9 +39,13 @@ export { EscrowStatus, asPercentage } from './types/escrow';
 export type { SDKConfig, KeypairResult, AccountInfo, BalanceInfo } from './types/network';
 
 // 5. Transaction types
-export type { SubmitResult, TransactionStatus, BuildParams, Operation } from './types/transaction';
+export type { SubmitResult, TransactionStatus, BuildParams } from './types/transaction';
 
-// 6. Standalone functions
+// 6. Transaction manager
+export { TransactionManager } from './transactions';
+export type { TransactionManagerConfig } from './transactions';
+
+// 7. Standalone functions
 export {
   createEscrowAccount,
   calculateStartingBalance,
@@ -49,5 +54,5 @@ export {
   anchorTrustHash,
   verifyEventHash,
 } from './escrow';
-export { buildMultisigTransaction } from './transactions';
+export { buildMultisigTransaction, buildTransaction, signTransaction, submitTransaction, monitorTransaction, estimateTransactionFee, transactionToXDR, transactionFromXDR } from './transactions';
 export { getMinimumReserve, generateKeypair } from './accounts';
