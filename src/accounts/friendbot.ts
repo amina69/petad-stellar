@@ -1,5 +1,4 @@
 import * as StellarSdk from '@stellar/stellar-sdk';
-import { Config } from '../config.js';
 
 export interface FriendbotResult {
   funded: boolean;
@@ -28,8 +27,8 @@ export async function fundTestnetAccount(publicKey: string): Promise<FriendbotRe
   }
 
   // Guard: only callable on testnet
-  const config = Config.getInstance();
-  if (!config.isTestnet()) {
+  const isTestnet = (process.env['STELLAR_NETWORK'] ?? 'testnet') === 'testnet';
+  if (!isTestnet) {
     throw new Error('Friendbot funding is only available on testnet network');
   }
 
