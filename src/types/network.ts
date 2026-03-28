@@ -1,3 +1,5 @@
+import { Transaction, FeeBumpTransaction } from '@stellar/stellar-sdk';
+
 export interface SDKConfig {
   network: 'testnet' | 'public';
   horizonUrl: string;
@@ -63,3 +65,5 @@ export interface VerifyResult {
   confirmations?: number;
   reason?: string;
 }
+
+export type SubmittableTransaction = Transaction | FeeBumpTransaction;
