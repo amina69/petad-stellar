@@ -34,7 +34,7 @@ export async function fundTestnetAccount(publicKey: string): Promise<FriendbotRe
   }
 
   const friendbotUrl = `https://friendbot.stellar.org?addr=${encodeURIComponent(publicKey)}`;
-  
+
   try {
     return await attemptFunding(friendbotUrl);
   } catch (error) {
@@ -57,7 +57,7 @@ async function attemptFunding(url: string): Promise<FriendbotResult> {
     });
 
     if (response.status === 200) {
-      const data = await response.json();
+      await response.json();
       return {
         funded: true,
         amount: "10000"

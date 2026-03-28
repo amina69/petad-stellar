@@ -1,4 +1,4 @@
-import { fundTestnetAccount, FriendbotError, FriendbotResult } from '../src/accounts/friendbot.js';
+import { fundTestnetAccount, FriendbotError } from '../src/accounts/friendbot.js';
 import { generateKeypair } from '../src/accounts/keypair.js';
 import { Config } from '../src/config.js';
 
@@ -23,10 +23,10 @@ async function testFriendbotFunding() {
     console.log('📝 Test 2: Mainnet guard...');
     const config = Config.getInstance();
     const originalTestnet = config.isTestnet();
-    
+
     // Temporarily set to mainnet using the setNetwork method
     config.setNetwork(false);
-    
+
     try {
       const validKey = generateKeypair().publicKey;
       await fundTestnetAccount(validKey);
@@ -45,7 +45,7 @@ async function testFriendbotFunding() {
     // Test 3: Valid public key format (without actually calling friendbot)
     console.log('📝 Test 3: Valid public key format...');
     const validKey = generateKeypair().publicKey;
-    
+
     // Just test that it passes the public key validation
     try {
       // This should pass the public key validation and fail at the network call
@@ -64,7 +64,7 @@ async function testFriendbotFunding() {
     // Test 4: FriendbotError class
     console.log('📝 Test 4: FriendbotError class...');
     const error = new FriendbotError('Test error', 500);
-    
+
     if (error.name === 'FriendbotError' && error.message === 'Test error' && error.statusCode === 500) {
       console.log('✅ Test 4 passed: FriendbotError class working correctly');
     } else {
@@ -74,7 +74,7 @@ async function testFriendbotFunding() {
     console.log('\n🎉 All friendbot tests passed successfully!');
     console.log('✅ Friendbot funding utility is working correctly');
     console.log('💡 Note: Network tests require actual friendbot service for full integration testing');
-    
+
   } catch (error) {
     console.error('❌ Test failed:', error instanceof Error ? error.message : 'Unknown error');
     process.exit(1);
