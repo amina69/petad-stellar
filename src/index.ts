@@ -1,5 +1,9 @@
 export const SDK_VERSION = '0.1.0';
 
+export { EscrowStatus } from "./EscrowStatus";
+export { getEscrowStatus } from "./getEscrowStatus";
+export type { GetEscrowStatusOptions } from "./getEscrowStatus";
+export { HorizonClient, HorizonNotFoundError } from "./HorizonClient";
 // 1. Main class
 export { StellarSDK } from './sdk';
 export { StellarSDK as default } from './sdk';
@@ -29,6 +33,9 @@ export type {
   ReleasedPayment,
   ReleaseResult,
   Percentage,
+  HorizonAccountResponse,
+  HorizonSigner,
+  HorizonBalance,
 } from './types/escrow';
 export { EscrowStatus, asPercentage } from './types/escrow';
 
