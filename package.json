@@ -1,31 +1,65 @@
 {
-  "name": "petad-chain",
-  "version": "1.0.0",
-  "type": "module",
+  "name": "@petad/stellar-sdk",
+  "version": "0.1.0",
+  "description": "Blockchain infrastructure SDK for PetAd",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
   "scripts": {
     "build": "tsc",
-    "test": "node dist/src/escrow.test.js",
-    "test-escrow": "ENCRYPTION_KEY=test-key-123 node dist/src/escrow.test.js",
-    "test-funding": "node dist/src/funding.test.js",
+    "dev": "tsc --watch",
+    "prebuild": "rimraf dist",
+    "test": "jest --testPathPattern=tests/unit --passWithNoTests",
+    "test:cov": "jest --testPathPattern=tests/unit --coverage --passWithNoTests",
+    "test:watch": "jest --testPathPattern=tests/unit --watch",
+    "test:integration": "jest --testPathPattern=tests/integration --runInBand --forceExit --passWithNoTests",
     "test-keypair": "node dist/tests/keypair.test.js",
-    "demo-funding": "node dist/src/funding-demo.js",
     "demo-keypair": "node dist/src/cli/keypair-demo.js",
-    "create-escrow": "node dist/src/cli/create-escrow.js",
-    "build-funding": "node dist/src/cli/build-funding.js",
-    "dev": "npm run build && npm run create-escrow"
+    "lint": "eslint src/ tests/ --ext .ts",
+    "lint:fix": "eslint src/ tests/ --ext .ts --fix",
+    "format": "prettier --write src/ tests/",
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "npm run lint && npm run type-check && npm run build"
   },
-  "keywords": ["stellar", "blockchain", "sdk"],
-  "author": "",
-  "license": "ISC",
-  "description": "Stellar SDK infrastructure for PetAd chain",
   "dependencies": {
-    "@stellar/stellar-sdk": "^14.5.0",
-    "dotenv": "^17.3.1"
+    "@stellar/stellar-sdk": "^12.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "@types/node": "^20.0.0"
+    "@types/jest": "^29.0.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.57.1",
+    "@typescript-eslint/parser": "^8.57.1",
+    "eslint": "^8.0.0",
+    "jest": "^29.0.0",
+    "msw": "^2.0.0",
+    "prettier": "^3.0.0",
+    "rimraf": "^6.1.3",
+    "ts-jest": "^29.0.0",
+    "typescript": "^5.0.0"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "coverageThreshold": {
+      "global": {
+        "branches": 80,
+        "functions": 80,
+        "lines": 80,
+        "statements": 80
+      }
+    },
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "json-summary"
+    ]
   }
 }
