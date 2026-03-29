@@ -86,7 +86,8 @@ describe('TransactionManager', () => {
         build: () => mockTransaction
       };
       
-      MockedTransactionBuilder.mockImplementation(() => mockBuilder as any);
+      // @ts-expect-error - Mock implementation doesn't need full TransactionBuilder interface
+      MockedTransactionBuilder.mockImplementation(() => mockBuilder);
 
       const result = await transactionManager.build(params);
       
@@ -149,7 +150,8 @@ describe('TransactionManager', () => {
       const mockTransactions = {
         transaction: jest.fn().mockReturnValue(mockTransactionCall)
       };
-      mockHorizonClient.transactions.mockReturnValue(mockTransactions as any);
+      // @ts-expect-error - Mock implementation doesn't need full interface
+      mockHorizonClient.transactions.mockReturnValue(mockTransactions);
 
       const mockLedgerCall = {
         call: jest.fn().mockImplementation(() => Promise.resolve({
@@ -160,7 +162,8 @@ describe('TransactionManager', () => {
         order: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnValue(mockLedgerCall)
       };
-      mockHorizonClient.ledgers.mockReturnValue(mockLedgers as any);
+      // @ts-expect-error - Mock implementation doesn't need full interface
+      mockHorizonClient.ledgers.mockReturnValue(mockLedgers);
 
       const result = await transactionManager.monitor(hash);
       
@@ -216,7 +219,8 @@ describe('TransactionManager', () => {
       const networkPassphrase = Networks.TESTNET;
       
       const mockTransaction = { hash: 'test' };
-      MockedTransaction.mockReturnValue(mockTransaction as any);
+      // @ts-expect-error - Mock implementation doesn't need full Transaction interface
+      MockedTransaction.mockReturnValue(mockTransaction);
 
       const result = transactionManager.fromXDR(xdr, networkPassphrase);
       
@@ -269,7 +273,8 @@ describe('Standalone Functions', () => {
         build: () => mockTransaction
       };
       
-      MockedTransactionBuilder.mockImplementation(() => mockBuilder as any);
+      // @ts-expect-error - Mock implementation doesn't need full TransactionBuilder interface
+      MockedTransactionBuilder.mockImplementation(() => mockBuilder);
 
       const result = await buildTransaction(params, mockHorizonClient);
       
@@ -386,7 +391,8 @@ describe('Standalone Functions', () => {
       const networkPassphrase = Networks.TESTNET;
       
       const mockTransaction = { hash: 'test' };
-      MockedTransaction.mockReturnValue(mockTransaction as any);
+      // @ts-expect-error - Mock implementation doesn't need full Transaction interface
+      MockedTransaction.mockReturnValue(mockTransaction);
 
       const result = transactionFromXDR(xdr, networkPassphrase);
       

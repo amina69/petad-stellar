@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+- Fixed TypeScript linting errors in test files by replacing `any` type assertions with proper `@ts-expect-error` comments for mock implementations
+- Improved test coverage to meet contribution requirements (functions ≥95%, branches ≥90%, lines ≥90%)
+- Added comprehensive export tests to ensure all public API functions are properly tested from the main entry point
+
 ### Added
 - `EscrowManager` class with dependency-injected escrow lifecycle methods: `createAccount`, `lockFunds`, `releaseFunds`, `handleDispute`, `getBalance`, and `getStatus` (`src/escrow/index.ts`)
 - Consistent escrow manager error wrapping for non-SDK errors using `ESCROW_MANAGER_ERROR` (`src/escrow/index.ts`)
