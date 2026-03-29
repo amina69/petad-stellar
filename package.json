@@ -21,6 +21,8 @@
     "test:cov": "jest --testPathPattern=tests/unit --coverage --passWithNoTests",
     "test:watch": "jest --testPathPattern=tests/unit --watch",
     "test:integration": "jest --testPathPattern=tests/integration --runInBand --forceExit --passWithNoTests",
+    "test-keypair": "node dist/tests/keypair.test.js",
+    "demo-keypair": "node dist/src/cli/keypair-demo.js",
     "lint": "eslint src/ tests/ --ext .ts",
     "lint:fix": "eslint src/ tests/ --ext .ts --fix",
     "format": "prettier --write src/ tests/",
