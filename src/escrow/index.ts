@@ -9,9 +9,19 @@ import {
   Transaction,
 } from '@stellar/stellar-sdk';
 
-import { CreateEscrowParams, EscrowAccount, Signer, Thresholds } from '../types/escrow';
+import {
+  CreateEscrowParams,
+  DisputeParams,
+  DisputeResult,
+  EscrowAccount,
+  EscrowStatus,
+  ReleaseParams,
+  ReleaseResult,
+  Signer,
+  Thresholds,
+} from '../types/escrow';
 import { getMinimumReserve } from '../accounts';
-import { ValidationError } from '../utils/errors';
+import { SdkError, ValidationError } from '../utils/errors';
 import { isValidPublicKey, isValidAmount } from '../utils/validation';
 
 import crypto from 'crypto';
@@ -32,6 +42,49 @@ export interface LockResult {
   conditionsHash: string;
   escrowPublicKey: string;
   transactionHash: string;
+}
+
+export interface EscrowHorizonClient {
+  loadAccount: (publicKey: string) => Promise<Account | { sequence: string }>;
+  submitTransaction: (tx: Transaction) => Promise<{ hash: string }>;
+}
+
+export interface EscrowAccountManager {
+  create: (args: {
+    publicKey: string;
+    startingBalance: string;
+  }) => Promise<{ accountId: string; transactionHash: string }>;
+  getBalance: (publicKey: string) => Promise<string>;
+}
+
+export interface EscrowTransactionManager {
+  releaseFunds: (
+    params: ReleaseParams,
+    context: {
+      horizonClient: EscrowHorizonClient;
+      masterSecretKey: string;
+    },
+  ) => Promise<ReleaseResult>;
+  handleDispute: (
+    params: DisputeParams,
+    context: {
+      horizonClient: EscrowHorizonClient;
+      masterSecretKey: string;
+    },
+  ) => Promise<DisputeResult>;
+  getStatus: (
+    escrowAccountId: string,
+    context: {
+      horizonClient: EscrowHorizonClient;
+    },
+  ) => Promise<EscrowStatus>;
+}
+
+export interface EscrowManagerDependencies {
+  horizonClient: EscrowHorizonClient;
+  accountManager: EscrowAccountManager;
+  transactionManager: EscrowTransactionManager;
+  masterSecretKey: string;
 }
 
 const MS_PER_DAY = 86_400_000;
@@ -228,4 +281,116 @@ export function anchorTrustHash(): undefined {
 
 export function verifyEventHash(): undefined {
   return undefined;
+}
+
+export class EscrowManager {
+  private readonly horizonClient: EscrowHorizonClient;
+
+  private readonly accountManager: EscrowAccountManager;
+
+  private readonly transactionManager: EscrowTransactionManager;
+
+  private readonly masterSecretKey: string;
+
+  /**
+   * Creates an escrow manager with injected dependencies.
+   */
+  constructor(dependencies: EscrowManagerDependencies) {
+    this.horizonClient = dependencies.horizonClient;
+    this.accountManager = dependencies.accountManager;
+    this.transactionManager = dependencies.transactionManager;
+    this.masterSecretKey = dependencies.masterSecretKey;
+  }
+
+  /**
+   * Creates a new escrow account and configures signer thresholds.
+   */
+  async createAccount(params: CreateEscrowParams): Promise<EscrowAccount> {
+    return this.executeWithErrorWrapping('createAccount', () =>
+      createEscrowAccount(params, this.accountManager),
+    );
+  }
+
+  /**
+   * Locks custody funds in escrow.
+   */
+  async lockFunds(
+    params: LockCustodyFundsParams,
+    networkPassphrase: string = Networks.TESTNET,
+  ): Promise<LockResult> {
+    return this.executeWithErrorWrapping('lockFunds', () =>
+      lockCustodyFunds(params, this.horizonClient, networkPassphrase),
+    );
+  }
+
+  /**
+   * Releases escrow funds using the configured transaction manager.
+   */
+  async releaseFunds(params: ReleaseParams): Promise<ReleaseResult> {
+    return this.executeWithErrorWrapping('releaseFunds', () =>
+      this.transactionManager.releaseFunds(params, {
+        horizonClient: this.horizonClient,
+        masterSecretKey: this.masterSecretKey,
+      }),
+    );
+  }
+
+  /**
+   * Applies dispute handling flow for an escrow account.
+   */
+  async handleDispute(params: DisputeParams): Promise<DisputeResult> {
+    return this.executeWithErrorWrapping('handleDispute', () =>
+      this.transactionManager.handleDispute(params, {
+        horizonClient: this.horizonClient,
+        masterSecretKey: this.masterSecretKey,
+      }),
+    );
+  }
+
+  /**
+   * Gets the XLM balance for an account.
+   */
+  async getBalance(publicKey: string): Promise<string> {
+    return this.executeWithErrorWrapping('getBalance', () =>
+      this.accountManager.getBalance(publicKey),
+    );
+  }
+
+  /**
+   * Retrieves the current escrow status.
+   */
+  async getStatus(escrowAccountId: string): Promise<EscrowStatus> {
+    return this.executeWithErrorWrapping('getStatus', () =>
+      this.transactionManager.getStatus(escrowAccountId, {
+        horizonClient: this.horizonClient,
+      }),
+    );
+  }
+
+  private async executeWithErrorWrapping<T>(
+    operation: string,
+    action: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await action();
+    } catch (error) {
+      throw this.wrapError(operation, error);
+    }
+  }
+
+  private wrapError(operation: string, error: unknown): SdkError {
+    if (error instanceof SdkError) {
+      return error;
+    }
+
+    if (error instanceof Error) {
+      return new SdkError(
+        `EscrowManager.${operation} failed: ${error.message}`,
+        'ESCROW_MANAGER_ERROR',
+        false,
+      );
+    }
+
+    return new SdkError(`EscrowManager.${operation} failed`, 'ESCROW_MANAGER_ERROR', false);
+  }
 }
