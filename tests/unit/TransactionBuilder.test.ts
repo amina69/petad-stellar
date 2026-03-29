@@ -1,5 +1,12 @@
 import { TransactionBuilder } from '../../src/transactions/TransactionBuilder';
 
+interface BuiltTransaction {
+    memo: string;
+    timeoutSeconds: number;
+    fee: number;
+    operations: object[];
+}
+
 describe('TransactionBuilder Unit Tests', () => {
     const mockHorizon = {
         fetchSequenceNumber: async (_account: string) => "100"
@@ -12,9 +19,8 @@ describe('TransactionBuilder Unit Tests', () => {
             .setMemo('TestMemo')
             .setTimeout(90);
 
-        const tx: object = await builder.build('G...SOURCE_ACCOUNT');
+        const tx = await builder.build('G...SOURCE_ACCOUNT') as unknown as BuiltTransaction;
 
-        // Validation logic
         if (tx.memo !== 'TestMemo') throw new Error('Memo was not set correctly');
         if (tx.timeoutSeconds !== 90) throw new Error('Timeout was not applied');
         if (tx.fee !== 150) throw new Error('Base fee was not used');
