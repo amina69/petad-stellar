@@ -1,13 +1,17 @@
 // src/transactions/TransactionBuilder.ts
 
+interface HorizonClient {
+    fetchSequenceNumber: (account: string) => Promise<string>;
+}
+
 export class TransactionBuilder {
-    private operations: any[] = [];
+    private operations: object[] = [];
     private memo: string | null = null;
     private fee: number;
     private timeout: number;
-    private horizonClient: any;
+    private horizonClient: HorizonClient;
 
-    constructor(horizonClient: any, maxFee: number = 100, transactionTimeout: number = 30) {
+    constructor(horizonClient: HorizonClient, maxFee: number = 100, transactionTimeout: number = 30) {
         this.horizonClient = horizonClient;
         this.fee = maxFee;
         this.timeout = transactionTimeout;
@@ -16,7 +20,7 @@ export class TransactionBuilder {
     /**
      * Adds an operation to the transaction
      */
-    addOperation(operation: any): this {
+    addOperation(operation: object): this {
         this.operations.push(operation);
         return this;
     }
@@ -40,15 +44,15 @@ export class TransactionBuilder {
     /**
      * Fetches sequence number and returns the unsigned transaction object
      */
-    async build(sourceAccount: string): Promise<any> {
+    async build(sourceAccount: string): Promise<object> {
         if (this.operations.length === 0) {
             throw new Error("Transaction must have at least one operation.");
         }
 
         // Fetch sequence number via fetchSequenceNumber() as required by task
         const sequenceNumber = await this.horizonClient.fetchSequenceNumber(sourceAccount);
-        
-        // Return unsigned transaction object (not XDR yet per task)
+
+        // Return unsigned transaction object
         return {
             sourceAccount,
             sequenceNumber: (BigInt(sequenceNumber) + 1n).toString(),
