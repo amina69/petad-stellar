@@ -34,19 +34,49 @@ describe('isValidAmount', () => {
 });
 
 describe('isValidDistribution', () => {
-  it('accepts 60/40 split', () =>
-    expect(
-      isValidDistribution([
-        { recipient: VALID_KEY_G, percentage: 60 },
-        { recipient: VALID_KEY_G, percentage: 40 },
-      ]),
-    ).toBe(true));
-  it('rejects sum of 90', () =>
-    expect(
-      isValidDistribution([
-        { recipient: VALID_KEY_G, percentage: 60 },
-        { recipient: VALID_KEY_G, percentage: 30 },
-      ]),
-    ).toBe(false));
+  it('accepts 60/40 split', () => expect(isValidDistribution([
+    { recipient: VALID_KEY_G, percentage: 60 },
+    { recipient: VALID_KEY_G, percentage: 40 },
+  ])).toBe(true));
+  it('accepts decimal percentages that sum exactly to 100', () => expect(isValidDistribution([
+    { recipient: VALID_KEY_G, percentage: 33.33 },
+    { recipient: VALID_KEY_G, percentage: 33.33 },
+    { recipient: VALID_KEY_G, percentage: 33.34 },
+  ])).toBe(true));
+  it('rejects sum of 90',   () => expect(isValidDistribution([
+    { recipient: VALID_KEY_G, percentage: 60 },
+    { recipient: VALID_KEY_G, percentage: 30 },
+  ])).toBe(false));
+  it('rejects decimal percentages that do not sum exactly to 100', () => expect(isValidDistribution([
+    { recipient: VALID_KEY_G, percentage: 33.33 },
+    { recipient: VALID_KEY_G, percentage: 33.33 },
+    { recipient: VALID_KEY_G, percentage: 33.33 },
+  ])).toBe(false));
   it('rejects empty array', () => expect(isValidDistribution([])).toBe(false));
+  it('rejects invalid recipient', () => expect(isValidDistribution([
+    { recipient: 'BADKEY', percentage: 100 },
+  ])).toBe(false));
+  it('rejects zero and over-100 percentages', () => {
+    expect(isValidDistribution([
+      { recipient: VALID_KEY_G, percentage: 0 },
+      { recipient: VALID_KEY_G, percentage: 100 },
+    ])).toBe(false);
+
+    expect(isValidDistribution([
+      { recipient: VALID_KEY_G, percentage: 101 },
+    ])).toBe(false);
+  });
+
+  it('handles scientific notation in percentages', () => {
+    // 1.0e2 is 100
+    expect(isValidDistribution([
+      { recipient: VALID_KEY_G, percentage: 1.0e2 },
+    ])).toBe(true);
+
+    // 5.0e1 + 5.0e1 = 50 + 50 = 100
+    expect(isValidDistribution([
+      { recipient: VALID_KEY_G, percentage: 5.0e1 },
+      { recipient: VALID_KEY_G, percentage: 5.0e1 },
+    ])).toBe(true);
+  });
 });
