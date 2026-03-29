@@ -2,7 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+- Implemented `handleDispute()` escrow lifecycle step to move escrow to platform-only signer mode by submitting signer and threshold updates, then verifying the account config via follow-up Horizon fetch (`src/escrow/index.ts`)
+
 ### Added
+- `EscrowManager` class with dependency-injected escrow lifecycle methods: `createAccount`, `lockFunds`, `releaseFunds`, `handleDispute`, `getBalance`, and `getStatus` (`src/escrow/index.ts`)
+- Consistent escrow manager error wrapping for non-SDK errors using `ESCROW_MANAGER_ERROR` (`src/escrow/index.ts`)
+- Unit tests for escrow manager instantiation and method delegation (`tests/unit/escrow/escrowManager.test.ts`)
 - `getMinimumReserve()` utility to calculate the minimum XLM balance required for an account based on signers, offers, and trustlines (`src/accounts/keypair.ts`)
 - `Percentage` branded type: compile-time guarantee that a number is validated to [0, 100] (`src/types/escrow.ts`)
 - `asPercentage()` runtime guard: validates and casts a number to `Percentage`, throws `RangeError` on NaN, Infinity, or out-of-range values (`src/types/escrow.ts`)
@@ -25,5 +31,17 @@
 - Logger class in src/utils/logger.ts with redaction, log levels, and JSON output
 - Unit tests for logger redaction and log level filtering
 - GitHub Actions CI workflow: lint, unit tests, build, security audit, npm publish on tag
+
+
+### Added
+- `lockCustodyFunds()` implementation for escrow lifecycle:
+  - Validates custodian, owner, platform public keys, deposit amount, and duration
+  - Computes deterministic `conditionsHash` using SHA-256
+  - Calculates `unlockDate` based on duration
+  - Builds and submits Stellar transaction to create escrow account
+  - Sets multi-sig signers (custodian, owner, platform)
+  - Encodes conditionsHash in transaction memo
+  - Returns `LockResult` with unlockDate, conditionsHash, escrowPublicKey, and transactionHash
+- Unit tests for `lockCustodyFunds()` including happy path, validation errors, deterministic hashing, unlock date, and edge cases
   <!-- sdk-ci.yml -->
   <!-- also create develop  branch -->
