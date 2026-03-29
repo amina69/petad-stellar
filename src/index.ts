@@ -29,6 +29,8 @@ export type {
   ReleasedPayment,
   ReleaseResult,
   Percentage,
+  LockFundsParams,
+  LockResult,
 } from './types/escrow';
 export { EscrowStatus, asPercentage } from './types/escrow';
 
@@ -36,7 +38,7 @@ export { EscrowStatus, asPercentage } from './types/escrow';
 export type { SDKConfig, KeypairResult, AccountInfo, BalanceInfo } from './types/network';
 
 // 5. Transaction types
-export type { SubmitResult, TransactionStatus } from './types/transaction';
+export type { SubmitResult, TransactionStatus, BuildParams, Operation } from './types/transaction';
 
 // 6. Standalone functions
 export {
