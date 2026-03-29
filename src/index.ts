@@ -46,6 +46,7 @@ export {
   calculateStartingBalance,
   lockCustodyFunds,
   EscrowManager,
+  handleDispute,
   anchorTrustHash,
   verifyEventHash,
 } from './escrow';

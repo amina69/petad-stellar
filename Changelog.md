@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- Implemented `handleDispute()` escrow lifecycle step to move escrow to platform-only signer mode by submitting signer and threshold updates, then verifying the account config via follow-up Horizon fetch (`src/escrow/index.ts`)
+
 ### Added
 - `EscrowManager` class with dependency-injected escrow lifecycle methods: `createAccount`, `lockFunds`, `releaseFunds`, `handleDispute`, `getBalance`, and `getStatus` (`src/escrow/index.ts`)
 - Consistent escrow manager error wrapping for non-SDK errors using `ESCROW_MANAGER_ERROR` (`src/escrow/index.ts`)
