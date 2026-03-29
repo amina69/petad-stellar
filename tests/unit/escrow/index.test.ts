@@ -1,190 +1,337 @@
 import {
   createEscrowAccount,
-  calculateStartingBalance,
+  clearEscrowCache,
+  lockCustodyFunds,
   anchorTrustHash,
   verifyEventHash,
 } from '../../../src/escrow';
-import { ValidationError } from '../../../src/utils/errors';
 import { CreateEscrowParams } from '../../../src/types/escrow';
-import { InsufficientBalanceError } from '../../../src/utils/errors';
+import { ValidationError, SdkError, FriendbotError } from '../../../src/utils/errors';
+import { Keypair, Horizon, TransactionBuilder, Operation } from '@stellar/stellar-sdk';
 
-describe('calculateStartingBalance', () => {
-  describe('happy path', () => {
-    it('calculates starting balance with 10 XLM deposit', () => {
-      expect(calculateStartingBalance('10')).toBe('12.5');
-    });
+// Mock the @stellar/stellar-sdk
+jest.mock('@stellar/stellar-sdk', () => {
+  const mockKeypair = {
+    publicKey: jest.fn().mockReturnValue('GBMOCKEDESCROWPUBLICKEY12345678901234567890123456'),
+    secret: jest.fn().mockReturnValue('SBMOCKEDSECRETKEY123456789012345678901234567890123'),
+  };
 
-    it('calculates starting balance with 100 XLM deposit', () => {
-      expect(calculateStartingBalance('100')).toBe('102.5');
-    });
+  const mockTransaction = {
+    sign: jest.fn(),
+  };
 
-    it('calculates starting balance with 0.5 XLM deposit', () => {
-      expect(calculateStartingBalance('0.5')).toBe('3');
-    });
+  const mockTransactionBuilder = {
+    addOperation: jest.fn().mockReturnThis(),
+    setTimeout: jest.fn().mockReturnThis(),
+    build: jest.fn().mockReturnValue(mockTransaction),
+  };
 
-    it('calculates starting balance with 1 XLM deposit', () => {
-      expect(calculateStartingBalance('1')).toBe('3.5');
-    });
+  const mockAccount = {
+    accountId: jest.fn().mockReturnValue('GBMOCKEDESCROWPUBLICKEY12345678901234567890123456'),
+  };
 
-    it('calculates starting balance with 0.0000001 XLM deposit (smallest unit)', () => {
-      expect(calculateStartingBalance('0.0000001')).toBe('2.5000001');
-    });
+  const mockServer = {
+    loadAccount: jest.fn().mockResolvedValue(mockAccount),
+    submitTransaction: jest.fn().mockResolvedValue({
+      hash: 'mockedtransactionhash1234567890abcdef1234567890abcdef12345678',
+    }),
+  };
 
-    it('calculates starting balance with 10000 XLM deposit', () => {
-      expect(calculateStartingBalance('10000')).toBe('10002.5');
-    });
-
-    it('handles decimal amounts with 7 decimal precision', () => {
-      expect(calculateStartingBalance('1.2345678')).toBe('3.7345678');
-    });
-  });
-
-  describe('validation errors', () => {
-    it('throws ValidationError for invalid amount format', () => {
-      expect(() => calculateStartingBalance('invalid')).toThrow(ValidationError);
-      expect(() => calculateStartingBalance('invalid')).toThrow('Invalid deposit amount: invalid');
-    });
-
-    it('throws ValidationError for zero amount', () => {
-      expect(() => calculateStartingBalance('0')).toThrow(ValidationError);
-    });
-
-    it('throws ValidationError for negative amount', () => {
-      expect(() => calculateStartingBalance('-10')).toThrow(ValidationError);
-    });
-
-    it('throws ValidationError for empty string', () => {
-      expect(() => calculateStartingBalance('')).toThrow(ValidationError);
-    });
-
-    it('throws ValidationError for more than 7 decimal places', () => {
-      expect(() => calculateStartingBalance('10.12345678')).toThrow(ValidationError);
-    });
-  });
+  return {
+    Keypair: {
+      random: jest.fn().mockReturnValue(mockKeypair),
+    },
+    Horizon: {
+      Server: jest.fn().mockImplementation(() => mockServer),
+    },
+    TransactionBuilder: jest.fn().mockImplementation(() => mockTransactionBuilder),
+    Operation: {
+      setOptions: jest.fn().mockReturnValue({}),
+    },
+    Networks: {
+      TESTNET: 'Test SDF Network ; September 2015',
+    },
+    Memo: {
+      none: jest.fn().mockReturnValue({ type: 'none' }),
+      text: jest.fn().mockImplementation((text: string) => ({ type: 'text', value: text })),
+    },
+  };
 });
 
-describe('createEscrowAccount', () => {
-  const mockAccountManager = {
-    create: jest.fn(),
-    getBalance: jest.fn(),
+// Mock global fetch for Friendbot
+const mockFetch = jest.fn();
+global.fetch = mockFetch;
+
+describe('escrow module', () => {
+  // Valid test data - public keys must be 56 characters starting with 'G'
+  const validAdopterPublicKey = 'GADOPTERPUBLICKEY123456789012345678901234567890123456789';
+  const validOwnerPublicKey = 'GOWNERPUBLICKEYAB123456789012345678901234567890123456789';
+  const validDepositAmount = '100.0000000';
+
+  const validParams: CreateEscrowParams = {
+    adopterPublicKey: validAdopterPublicKey,
+    ownerPublicKey: validOwnerPublicKey,
+    depositAmount: validDepositAmount,
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
-  });
+    clearEscrowCache();
 
-  const validParams: CreateEscrowParams = {
-    adopterPublicKey: 'GAGVLQRZZTHIXM7FYEXYA3Q2HNYOZ3FLQORBQIISF6YJQIHE5UIE2JMX',
-    ownerPublicKey: 'GAPEGAX7B6NBY6NOCLTM7QOQIZWD72KLZRWSYSOT25MFNY5ADK7KR7EE',
-    depositAmount: '10',
-  };
-
-  describe('happy path', () => {
-    it('creates an escrow account with correct starting balance', async () => {
-      mockAccountManager.create.mockResolvedValue({
-        accountId: 'GXXX123456789',
-        transactionHash: 'abc123def456',
-      });
-
-      const result = await createEscrowAccount(validParams, mockAccountManager);
-
-      expect(mockAccountManager.create).toHaveBeenCalledWith({
-        publicKey: expect.any(String),
-        startingBalance: '12.5',
-      });
-
-      expect(result.accountId).toBe('GXXX123456789');
-      expect(result.transactionHash).toBe('abc123def456');
-      expect(result.signers).toHaveLength(3);
-      expect(result.thresholds).toEqual({
-        low: 1,
-        medium: 2,
-        high: 2,
-      });
-    });
-
-    it('includes unlockDate when provided', async () => {
-      const unlockDate = new Date('2024-12-31');
-      mockAccountManager.create.mockResolvedValue({
-        accountId: 'GXXX123456789',
-        transactionHash: 'abc123def456',
-      });
-
-      const result = await createEscrowAccount({ ...validParams, unlockDate }, mockAccountManager);
-
-      expect(result.unlockDate).toEqual(unlockDate);
-    });
-
-    it('handles different deposit amounts correctly', async () => {
-      mockAccountManager.create.mockResolvedValue({
-        accountId: 'GXXX123456789',
-        transactionHash: 'abc123def456',
-      });
-
-      await createEscrowAccount({ ...validParams, depositAmount: '50' }, mockAccountManager);
-
-      expect(mockAccountManager.create).toHaveBeenCalledWith({
-        publicKey: expect.any(String),
-        startingBalance: '52.5',
-      });
+    // Default successful Friendbot response
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
     });
   });
 
-  describe('validation errors', () => {
-    it('throws ValidationError for invalid adopter public key', async () => {
-      await expect(
-        createEscrowAccount({ ...validParams, adopterPublicKey: 'INVALID' }, mockAccountManager),
-      ).rejects.toThrow(ValidationError);
+  describe('createEscrowAccount', () => {
+    describe('validation', () => {
+      it('throws ValidationError for invalid adopterPublicKey', async () => {
+        const invalidParams = { ...validParams, adopterPublicKey: 'INVALID' };
+
+        await expect(createEscrowAccount(invalidParams)).rejects.toThrow(ValidationError);
+        await expect(createEscrowAccount(invalidParams)).rejects.toMatchObject({
+          field: 'adopterPublicKey',
+          code: 'VALIDATION_ERROR',
+        });
+      });
+
+      it('throws ValidationError for adopterPublicKey not starting with G', async () => {
+        const invalidParams = {
+          ...validParams,
+          adopterPublicKey: 'SADOPTERPUBLICKEY1234567890123456789012345678901234'
+        };
+
+        await expect(createEscrowAccount(invalidParams)).rejects.toThrow(ValidationError);
+      });
+
+      it('throws ValidationError for adopterPublicKey with wrong length', async () => {
+        const invalidParams = {
+          ...validParams,
+          adopterPublicKey: 'GSHORT'
+        };
+
+        await expect(createEscrowAccount(invalidParams)).rejects.toThrow(ValidationError);
+      });
+
+      it('throws ValidationError for invalid ownerPublicKey', async () => {
+        const invalidParams = { ...validParams, ownerPublicKey: 'INVALID' };
+
+        await expect(createEscrowAccount(invalidParams)).rejects.toThrow(ValidationError);
+        await expect(createEscrowAccount(invalidParams)).rejects.toMatchObject({
+          field: 'ownerPublicKey',
+          code: 'VALIDATION_ERROR',
+        });
+      });
+
+      it('throws ValidationError for ownerPublicKey not starting with G', async () => {
+        const invalidParams = {
+          ...validParams,
+          ownerPublicKey: 'SOWNERPUBLICKEYAB12345678901234567890123456789012345'
+        };
+
+        await expect(createEscrowAccount(invalidParams)).rejects.toThrow(ValidationError);
+      });
+
+      it('throws ValidationError for invalid depositAmount (negative)', async () => {
+        const invalidParams = { ...validParams, depositAmount: '-100' };
+
+        await expect(createEscrowAccount(invalidParams)).rejects.toThrow(ValidationError);
+        await expect(createEscrowAccount(invalidParams)).rejects.toMatchObject({
+          field: 'depositAmount',
+          code: 'VALIDATION_ERROR',
+        });
+      });
+
+      it('throws ValidationError for invalid depositAmount (non-numeric)', async () => {
+        const invalidParams = { ...validParams, depositAmount: 'abc' };
+
+        await expect(createEscrowAccount(invalidParams)).rejects.toThrow(ValidationError);
+      });
+
+      it('throws ValidationError for invalid depositAmount (too many decimals)', async () => {
+        const invalidParams = { ...validParams, depositAmount: '100.12345678' };
+
+        await expect(createEscrowAccount(invalidParams)).rejects.toThrow(ValidationError);
+      });
+
+      it('throws ValidationError for zero depositAmount', async () => {
+        const invalidParams = { ...validParams, depositAmount: '0' };
+
+        await expect(createEscrowAccount(invalidParams)).rejects.toThrow(ValidationError);
+      });
     });
 
-    it('throws ValidationError for invalid owner public key', async () => {
-      await expect(
-        createEscrowAccount({ ...validParams, ownerPublicKey: 'INVALID' }, mockAccountManager),
-      ).rejects.toThrow(ValidationError);
+    describe('idempotency', () => {
+      it('returns cached escrow account for duplicate requests', async () => {
+        const result1 = await createEscrowAccount(validParams);
+        const result2 = await createEscrowAccount(validParams);
+
+        expect(result1).toEqual(result2);
+        // Keypair.random should only be called once
+        expect(Keypair.random).toHaveBeenCalledTimes(1);
+      });
+
+      it('creates new escrow for different parameters', async () => {
+        const params1 = { ...validParams };
+        const params2 = { ...validParams, depositAmount: '200.0000000' };
+
+        await createEscrowAccount(params1);
+        await createEscrowAccount(params2);
+
+        // Keypair.random should be called twice
+        expect(Keypair.random).toHaveBeenCalledTimes(2);
+      });
     });
 
-    it('throws ValidationError for invalid deposit amount', async () => {
-      await expect(
-        createEscrowAccount({ ...validParams, depositAmount: '-10' }, mockAccountManager),
-      ).rejects.toThrow(ValidationError);
+    describe('happy path - full lifecycle', () => {
+      it('creates escrow account with all steps executed', async () => {
+        const result = await createEscrowAccount(validParams);
+
+        // Verify keypair generation
+        expect(Keypair.random).toHaveBeenCalled();
+
+        // Verify Friendbot funding
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('friendbot.stellar.org')
+        );
+
+        // Verify Horizon server creation
+        expect(Horizon.Server).toHaveBeenCalled();
+
+        // Verify transaction building
+        expect(TransactionBuilder).toHaveBeenCalled();
+        expect(Operation.setOptions).toHaveBeenCalled();
+
+        // Verify result structure
+        expect(result).toHaveProperty('accountId');
+        expect(result).toHaveProperty('transactionHash');
+        expect(result).toHaveProperty('signers');
+        expect(result).toHaveProperty('thresholds');
+
+        // Verify signers array
+        expect(result.signers).toHaveLength(3);
+        expect(result.signers).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ weight: 1 }),
+          ])
+        );
+
+        // Verify thresholds
+        expect(result.thresholds).toEqual({
+          low: 1,
+          medium: 2,
+          high: 2,
+        });
+      });
+
+      it('includes unlockDate when provided', async () => {
+        const unlockDate = new Date('2025-12-31');
+        const paramsWithUnlock = { ...validParams, unlockDate };
+
+        const result = await createEscrowAccount(paramsWithUnlock);
+
+        expect(result.unlockDate).toEqual(unlockDate);
+      });
+
+      it('handles metadata encoding', async () => {
+        const paramsWithMetadata: CreateEscrowParams = {
+          ...validParams,
+          metadata: {
+            adoptionId: 'adopt-12345',
+            petId: 'pet-67890',
+          },
+        };
+
+        const result = await createEscrowAccount(paramsWithMetadata);
+
+        expect(result).toHaveProperty('accountId');
+        expect(result).toHaveProperty('transactionHash');
+      });
+    });
+
+    describe('error handling', () => {
+      it('throws FriendbotError when funding fails', async () => {
+        // Override the default mock for this test
+        mockFetch.mockReset();
+        mockFetch.mockResolvedValue({
+          ok: false,
+          status: 500,
+        });
+
+        await expect(createEscrowAccount(validParams)).rejects.toThrow(FriendbotError);
+
+        const params300 = { ...validParams, depositAmount: '300.0000000' };
+        await expect(createEscrowAccount(params300)).rejects.toMatchObject({
+          code: 'FRIENDBOT_ERROR',
+          retryable: true,
+        });
+      });
+
+      it('throws FriendbotError with 400 status', async () => {
+        mockFetch.mockReset();
+        mockFetch.mockResolvedValue({
+          ok: false,
+          status: 400,
+        });
+
+        const newParams = { ...validParams, depositAmount: '400.0000000' };
+        await expect(createEscrowAccount(newParams)).rejects.toThrow(FriendbotError);
+      });
+
+      it('wraps unknown errors in SdkError', async () => {
+        mockFetch.mockReset();
+        mockFetch.mockRejectedValue(new Error('Network error'));
+
+        const newParams = { ...validParams, depositAmount: '500.0000000' };
+        await expect(createEscrowAccount(newParams)).rejects.toThrow(SdkError);
+
+        const params501 = { ...validParams, depositAmount: '501.0000000' };
+        await expect(createEscrowAccount(params501)).rejects.toMatchObject({
+          code: 'ESCROW_CREATION_ERROR',
+        });
+      });
+
+      it('re-throws ValidationError as-is', async () => {
+        const invalidParams = { ...validParams, adopterPublicKey: 'INVALID' };
+
+        try {
+          await createEscrowAccount(invalidParams);
+          fail('Should have thrown');
+        } catch (error) {
+          expect(error).toBeInstanceOf(ValidationError);
+          expect((error as ValidationError).field).toBe('adopterPublicKey');
+        }
+      });
+    });
+
+    describe('multisig configuration', () => {
+      it('configures three signers with correct weights', async () => {
+        const result = await createEscrowAccount(validParams);
+
+        expect(result.signers).toHaveLength(3);
+        result.signers.forEach(signer => {
+          expect(signer.weight).toBe(1);
+          expect(signer.publicKey).toBeDefined();
+        });
+      });
+
+      it('sets correct threshold values', async () => {
+        const result = await createEscrowAccount(validParams);
+
+        expect(result.thresholds.low).toBe(1);
+        expect(result.thresholds.medium).toBe(2);
+        expect(result.thresholds.high).toBe(2);
+      });
     });
   });
 
-  describe('InsufficientBalanceError handling', () => {
-    it('re-throws InsufficientBalanceError from account manager', async () => {
-      const error = new InsufficientBalanceError('100', '50');
-      mockAccountManager.create.mockRejectedValue(error);
-
-      await expect(createEscrowAccount(validParams, mockAccountManager)).rejects.toThrow(
-        InsufficientBalanceError,
-      );
+  describe('other escrow module placeholders', () => {
+    it('exports callable placeholder functions', () => {
+      expect(lockCustodyFunds()).toBeUndefined();
+      expect(anchorTrustHash()).toBeUndefined();
+      expect(verifyEventHash()).toBeUndefined();
     });
-
-    it('error message contains required and available amounts', async () => {
-      const error = new InsufficientBalanceError('100', '50');
-      mockAccountManager.create.mockRejectedValue(error);
-
-      await expect(createEscrowAccount(validParams, mockAccountManager)).rejects.toThrow(
-        'Insufficient balance. Required: 100, available: 50',
-      );
-    });
-  });
-
-  describe('other errors', () => {
-    it('re-throws generic errors from account manager', async () => {
-      const error = new Error('Network error');
-      mockAccountManager.create.mockRejectedValue(error);
-
-      await expect(createEscrowAccount(validParams, mockAccountManager)).rejects.toThrow(
-        'Network error',
-      );
-    });
-  });
-});
-
-describe('placeholder functions', () => {
-  it('anchorTrustHash and verifyEventHash are callable stubs', () => {
-    expect(anchorTrustHash()).toBeUndefined();
-    expect(verifyEventHash()).toBeUndefined();
   });
 });
