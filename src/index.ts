@@ -19,7 +19,7 @@ export {
 } from './utils/errors';
 
 // 3. Escrow types (canonical source for Signer + Thresholds)
-export type { CreateEscrowParams, Signer, Thresholds, EscrowAccount, Distribution, ReleaseParams, ReleasedPayment, ReleaseResult, Percentage } from './types/escrow';
+export type { CreateEscrowParams, Signer, Thresholds, EscrowAccount, Distribution, ReleaseParams, ReleasedPayment, ReleaseResult, Percentage, LockFundsParams, LockResult } from './types/escrow';
 export { EscrowStatus, asPercentage } from './types/escrow';
 
 // 4. Network types (Signer + Thresholds excluded to avoid conflict)
