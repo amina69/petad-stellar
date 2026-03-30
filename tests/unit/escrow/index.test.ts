@@ -72,27 +72,35 @@ describe('escrow module placeholders', () => {
 
 describe('releaseFunds validation', () => {
   it('throws ValidationError for an invalid escrow public key', async () => {
+    const loadAccount = jest.fn();
+
     await expect(
       validateReleaseFundsParams(
         {
           escrowAccountId: 'NOT_A_PUBLIC_KEY',
           distribution: [...VALID_DISTRIBUTION],
         },
-        { loadAccount: jest.fn() },
+        { loadAccount },
       ),
     ).rejects.toBeInstanceOf(ValidationError);
+
+    expect(loadAccount).not.toHaveBeenCalled();
   });
 
   it('throws ValidationError for an invalid distribution payload', async () => {
+    const loadAccount = jest.fn();
+
     await expect(
       validateReleaseFundsParams(
         {
           escrowAccountId: VALID_ESCROW_ACCOUNT_ID,
           distribution: [],
         },
-        { loadAccount: jest.fn() },
+        { loadAccount },
       ),
     ).rejects.toBeInstanceOf(ValidationError);
+
+    expect(loadAccount).not.toHaveBeenCalled();
   });
 
   it('throws EscrowNotFoundError when Horizon cannot find the escrow account', async () => {
@@ -125,6 +133,39 @@ describe('releaseFunds validation', () => {
     ).rejects.toBeInstanceOf(InsufficientBalanceError);
   });
 
+  it('throws InsufficientBalanceError when the account has no native balance entry', async () => {
+    const accountWithoutNative = {
+      ...createMockAccount('25.5'),
+      balances: [],
+    } as unknown as Horizon.AccountResponse;
+    const loadAccount = jest.fn().mockResolvedValue(accountWithoutNative);
+
+    await expect(
+      releaseFunds(
+        {
+          escrowAccountId: VALID_ESCROW_ACCOUNT_ID,
+          distribution: [...VALID_DISTRIBUTION],
+        },
+        { loadAccount },
+      ),
+    ).rejects.toBeInstanceOf(InsufficientBalanceError);
+  });
+
+  it('rethrows non-not-found Horizon errors without remapping them', async () => {
+    const networkError = new Error('horizon unavailable');
+    const loadAccount = jest.fn().mockRejectedValue(networkError);
+
+    await expect(
+      releaseFunds(
+        {
+          escrowAccountId: VALID_ESCROW_ACCOUNT_ID,
+          distribution: [...VALID_DISTRIBUTION],
+        },
+        { loadAccount },
+      ),
+    ).rejects.toBe(networkError);
+  });
+
   it('returns the validated Horizon account record on success', async () => {
     const account = createMockAccount('25.5');
     const loadAccount = jest.fn().mockResolvedValue(account);
@@ -138,6 +179,22 @@ describe('releaseFunds validation', () => {
         { loadAccount },
       ),
     ).resolves.toBe(account);
+  });
+
+  it('is idempotent for repeated calls with the same params and account state', async () => {
+    const account = createMockAccount('25.5');
+    const loadAccount = jest.fn().mockResolvedValue(account);
+    const params = {
+      escrowAccountId: VALID_ESCROW_ACCOUNT_ID,
+      distribution: [...VALID_DISTRIBUTION],
+    };
+
+    await expect(releaseFunds(params, { loadAccount })).resolves.toBe(account);
+    await expect(releaseFunds(params, { loadAccount })).resolves.toBe(account);
+
+    expect(loadAccount).toHaveBeenCalledTimes(2);
+    expect(loadAccount).toHaveBeenNthCalledWith(1, VALID_ESCROW_ACCOUNT_ID);
+    expect(loadAccount).toHaveBeenNthCalledWith(2, VALID_ESCROW_ACCOUNT_ID);
   });
 });
 
