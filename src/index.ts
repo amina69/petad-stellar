@@ -41,14 +41,6 @@ export type { SDKConfig, KeypairResult, AccountInfo, BalanceInfo } from './types
 export type { SubmitResult, TransactionStatus, BuildParams, Operation } from './types/transaction';
 
 // 6. Standalone functions
-export {
-  createEscrowAccount,
-  calculateStartingBalance,
-  lockCustodyFunds,
-  EscrowManager,
-  handleDispute,
-  anchorTrustHash,
-  verifyEventHash,
-} from './escrow';
-export { buildMultisigTransaction, buildSetOptionsOp } from './transactions';
+export { createEscrowAccount, lockCustodyFunds, anchorTrustHash, verifyEventHash, releaseFunds } from './escrow';
+export { buildMultisigTransaction } from './transactions';
 export { getMinimumReserve, generateKeypair } from './accounts';
