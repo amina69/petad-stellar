@@ -10,7 +10,6 @@ import {
   transactionFromXDR 
 } from '../../../src/transactions';
 import { BuildParams } from '../../../src/types/transaction';
-import { DEFAULT_MAX_FEE } from '../../../src/utils/constants';
 
 // Mock the Stellar SDK
 jest.mock('@stellar/stellar-sdk', () => ({
@@ -178,16 +177,6 @@ describe('TransactionManager', () => {
 
   describe('estimateFee', () => {
     it('should delegate to estimateTransactionFee function', async () => {
-      const params: BuildParams = {
-        sourceAccount: 'GTEST123',
-        operations: [{
-          type: 'Payment',
-          destination: 'GDEST456',
-          asset: 'native',
-          amount: '10'
-        }]
-      };
-
       mockHorizonClient.feeStats.mockResolvedValue({
         last_ledger_base_fee: '100'
       } as unknown as Horizon.HorizonApi.FeeStatsResponse);
@@ -341,14 +330,6 @@ describe('Standalone Functions', () => {
 
   describe('estimateTransactionFee', () => {
     it('should return estimated fee based on fee stats', async () => {
-      const params: BuildParams = {
-        sourceAccount: 'GTEST123',
-        operations: [
-          { type: 'Payment', destination: 'GDEST456', asset: 'native', amount: '10' },
-          { type: 'Payment', destination: 'GDEST789', asset: 'native', amount: '20' }
-        ]
-      };
-
       mockHorizonClient.feeStats.mockResolvedValue({
         last_ledger_base_fee: '100'
       } as unknown as Horizon.HorizonApi.FeeStatsResponse);
@@ -359,13 +340,6 @@ describe('Standalone Functions', () => {
     });
 
     it('should return default fee on fee stats failure', async () => {
-      const params: BuildParams = {
-        sourceAccount: 'GTEST123',
-        operations: [
-          { type: 'Payment', destination: 'GDEST456', asset: 'native', amount: '10' }
-        ]
-      };
-
       mockHorizonClient.feeStats.mockRejectedValue(new Error('Fee stats failed'));
 
       const result = await estimateTransactionFee(mockHorizonClient);
