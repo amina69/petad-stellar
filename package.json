@@ -16,11 +16,13 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "prebuild": "rm -rf dist",
+    "prebuild": "rimraf dist",
     "test": "jest --testPathPattern=tests/unit --passWithNoTests",
     "test:cov": "jest --testPathPattern=tests/unit --coverage --passWithNoTests",
     "test:watch": "jest --testPathPattern=tests/unit --watch",
     "test:integration": "jest --testPathPattern=tests/integration --runInBand --forceExit --passWithNoTests",
+    "test-keypair": "node dist/tests/keypair.test.js",
+    "demo-keypair": "node dist/src/cli/keypair-demo.js",
     "lint": "eslint src/ tests/ --ext .ts",
     "lint:fix": "eslint src/ tests/ --ext .ts --fix",
     "format": "prettier --write src/ tests/",
@@ -39,6 +41,7 @@
     "jest": "^29.0.0",
     "msw": "^2.0.0",
     "prettier": "^3.0.0",
+    "rimraf": "^6.1.3",
     "ts-jest": "^29.0.0",
     "typescript": "^5.0.0"
   },
