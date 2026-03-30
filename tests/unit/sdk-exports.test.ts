@@ -13,7 +13,6 @@ import defaultExport, {
   EscrowStatus,
 } from '../../src/index';
 
-// Requirements 1.3
 describe('StellarSDK named and default export identity', () => {
   it('default export and named StellarSDK export are the same reference', () => {
     expect(defaultExport).toBe(StellarSDK);
