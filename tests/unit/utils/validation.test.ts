@@ -5,8 +5,6 @@ import {
   isValidDistribution,
 } from '../../../src/utils/validation';
 
-// const VALID_KEY_G = 'GADOPTER1111111111111111111111111111111111111111111111111111';
-// const VALID_KEY_S = 'SADOPTER1111111111111111111111111111111111111111111111111111';
 
 const VALID_KEY_G = 'GAGVLQRZZTHIXM7FYEXYA3Q2HNYOZ3FLQORBQIISF6YJQIHE5UIE2JMX';
 const VALID_KEY_S = 'SADOPTER111111111111111111111111111111111111111111111111';
@@ -26,6 +24,13 @@ describe('isValidSecretKey', () => {
 
 describe('isValidAmount', () => {
   it('accepts positive decimal', () => expect(isValidAmount('100.50')).toBe(true));
+  it('accepts whole number',     () => expect(isValidAmount('500')).toBe(true));
+  it('accepts smallest 7dp value', () => expect(isValidAmount('0.0000001')).toBe(true));
+  it('rejects zero',             () => expect(isValidAmount('0')).toBe(false));
+  it('rejects negative',         () => expect(isValidAmount('-50')).toBe(false));
+  it('rejects non-numeric',      () => expect(isValidAmount('abc')).toBe(false));
+  it('rejects scientific notation', () => expect(isValidAmount('1e5')).toBe(false));
+  it('rejects empty string',     () => expect(isValidAmount('')).toBe(false));
   it('accepts whole number', () => expect(isValidAmount('500')).toBe(true));
   it('rejects zero', () => expect(isValidAmount('0')).toBe(false));
   it('rejects negative', () => expect(isValidAmount('-50')).toBe(false));
