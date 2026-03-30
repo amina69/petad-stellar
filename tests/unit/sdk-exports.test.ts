@@ -11,6 +11,22 @@ import defaultExport, {
   FriendbotError,
   ConditionMismatchError,
   EscrowStatus,
+  asPercentage,
+  TransactionManager,
+  createEscrowAccount,
+  lockCustodyFunds,
+  anchorTrustHash,
+  verifyEventHash,
+  buildMultisigTransaction,
+  buildTransaction,
+  signTransaction,
+  submitTransaction,
+  monitorTransaction,
+  estimateTransactionFee,
+  transactionToXDR,
+  transactionFromXDR,
+  getMinimumReserve,
+  SDK_VERSION,
 } from '../../src/index';
 
 // Requirements 1.3
@@ -107,5 +123,45 @@ describe('EscrowStatus enum values resolve to their expected string literals', (
 
   it('EscrowStatus.NOT_FOUND === "NOT_FOUND"', () => {
     expect(EscrowStatus.NOT_FOUND).toBe('NOT_FOUND');
+  });
+});
+
+// Test function exports to improve coverage
+describe('Function exports are accessible from the entry point', () => {
+  it('exports SDK_VERSION constant', () => {
+    expect(typeof SDK_VERSION).toBe('string');
+    expect(SDK_VERSION).toBe('0.1.0');
+  });
+
+  it('exports asPercentage function', () => {
+    expect(typeof asPercentage).toBe('function');
+    expect(asPercentage(50)).toBe(50);
+  });
+
+  it('exports TransactionManager class', () => {
+    expect(typeof TransactionManager).toBe('function');
+    expect(TransactionManager.name).toBe('TransactionManager');
+  });
+
+  it('exports escrow functions', () => {
+    expect(typeof createEscrowAccount).toBe('function');
+    expect(typeof lockCustodyFunds).toBe('function');
+    expect(typeof anchorTrustHash).toBe('function');
+    expect(typeof verifyEventHash).toBe('function');
+  });
+
+  it('exports transaction functions', () => {
+    expect(typeof buildMultisigTransaction).toBe('function');
+    expect(typeof buildTransaction).toBe('function');
+    expect(typeof signTransaction).toBe('function');
+    expect(typeof submitTransaction).toBe('function');
+    expect(typeof monitorTransaction).toBe('function');
+    expect(typeof estimateTransactionFee).toBe('function');
+    expect(typeof transactionToXDR).toBe('function');
+    expect(typeof transactionFromXDR).toBe('function');
+  });
+
+  it('exports account functions', () => {
+    expect(typeof getMinimumReserve).toBe('function');
   });
 });

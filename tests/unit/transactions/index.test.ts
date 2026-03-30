@@ -1,12 +1,39 @@
+import { 
+  buildMultisigTransaction, 
+  fetchTransactionOnce,
+  TransactionManager,
+  buildTransaction,
+  signTransaction,
+  submitTransaction,
+  monitorTransaction,
+  estimateTransactionFee,
+  transactionToXDR,
+  transactionFromXDR
+} from '../../../src/transactions';
+import { HorizonSubmitError } from '../../../src/utils/errors';
 
-import { Keypair, Operation } from '@stellar/stellar-sdk';
+describe('transactions module', () => {
+  describe('placeholder functions', () => {
+    it('exports callable placeholder function', () => {
+      expect(buildMultisigTransaction()).toBeUndefined();
+    });
+  });
 
-import { buildMultisigTransaction, buildSetOptionsOp, fetchTransactionOnce } from '../../../src/transactions';
-import { HorizonSubmitError, ValidationError } from '../../../src/utils/errors';
+  describe('exports', () => {
+    it('exports TransactionManager class', () => {
+      expect(TransactionManager).toBeDefined();
+      expect(typeof TransactionManager).toBe('function');
+    });
 
-describe('transactions module placeholders', () => {
-  it('exports callable placeholder function', () => {
-    expect(buildMultisigTransaction()).toBeUndefined();
+    it('exports standalone functions', () => {
+      expect(typeof buildTransaction).toBe('function');
+      expect(typeof signTransaction).toBe('function');
+      expect(typeof submitTransaction).toBe('function');
+      expect(typeof monitorTransaction).toBe('function');
+      expect(typeof estimateTransactionFee).toBe('function');
+      expect(typeof transactionToXDR).toBe('function');
+      expect(typeof transactionFromXDR).toBe('function');
+    });
   });
 });
 

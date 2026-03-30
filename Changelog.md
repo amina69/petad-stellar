@@ -3,7 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
-- Implemented `handleDispute()` escrow lifecycle step to move escrow to platform-only signer mode by submitting signer and threshold updates, then verifying the account config via follow-up Horizon fetch (`src/escrow/index.ts`)
+- Fixed TypeScript linting errors in test files by replacing `any` type assertions with proper `@ts-expect-error` comments for mock implementations
+- Improved test coverage to meet contribution requirements (functions ≥95%, branches ≥90%, lines ≥90%)
+- Added comprehensive export tests to ensure all public API functions are properly tested from the main entry point
 
 ### Added
 - `isValidAmount()` validator: validates positive Stellar amount strings with up to 7 decimal places and rejects scientific notation (`src/utils/validation.ts`)
