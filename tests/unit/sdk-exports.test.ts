@@ -13,6 +13,50 @@ import defaultExport, {
   EscrowStatus,
 } from '../../src/index';
 
+describe('SDK Exports', () => {
+  it('should export StellarSDK', () => {
+    expect(StellarSDK).toBeDefined();
+  });
+
+  it('should export all error classes', () => {
+    expect(SdkError).toBeDefined();
+    expect(ValidationError).toBeDefined();
+    expect(AccountNotFoundError).toBeDefined();
+    expect(EscrowNotFoundError).toBeDefined();
+    expect(InsufficientBalanceError).toBeDefined();
+    expect(HorizonSubmitError).toBeDefined();
+    expect(TransactionTimeoutError).toBeDefined();
+    expect(MonitorTimeoutError).toBeDefined();
+    expect(FriendbotError).toBeDefined();
+    expect(ConditionMismatchError).toBeDefined();
+  });
+
+  it('should export EscrowStatus enum', () => {
+    expect(EscrowStatus).toBeDefined();
+    expect(EscrowStatus.CREATED).toBe('CREATED');
+  });
+
+  it('should have a default export', () => {
+    expect(defaultExport).toBeDefined();
+    expect(defaultExport.SDK_VERSION).toBeDefined();
+  });
+});
+
+import defaultExport, {
+  StellarSDK,
+  SdkError,
+  ValidationError,
+  AccountNotFoundError,
+  EscrowNotFoundError,
+  InsufficientBalanceError,
+  HorizonSubmitError,
+  TransactionTimeoutError,
+  MonitorTimeoutError,
+  FriendbotError,
+  ConditionMismatchError,
+  EscrowStatus,
+} from '../../src/index';
+
 // Requirements 1.3
 describe('StellarSDK named and default export identity', () => {
   it('default export and named StellarSDK export are the same reference', () => {
