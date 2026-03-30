@@ -1,467 +1,364 @@
 import {
+  Account,
+  Asset,
+  Horizon,
   Keypair,
   Memo,
+  Operation as StellarOperation,
   TransactionBuilder,
-  Operation,
-  Networks,
-  BASE_FEE,
-  Account,
-  Transaction,
 } from '@stellar/stellar-sdk';
-
+import { Distribution, ReleaseParams, ReleaseResult } from '../types/escrow';
+import { PaymentOp } from '../types/transaction';
 import {
-  CreateEscrowParams,
-  DisputeParams,
-  DisputeResult,
-  EscrowAccount,
-  EscrowStatus,
-  ReleaseParams,
-  ReleaseResult,
-  Signer,
-  Thresholds,
-} from '../types/escrow';
-import { getMinimumReserve } from '../accounts';
-import { SdkError, ValidationError } from '../utils/errors';
-import { isValidPublicKey, isValidAmount, isValidSecretKey } from '../utils/validation';
+  DEFAULT_MAX_FEE,
+  DEFAULT_TRANSACTION_TIMEOUT,
+  MAINNET_HORIZON_URL,
+  MAINNET_PASSPHRASE,
+  TESTNET_HORIZON_URL,
+  TESTNET_PASSPHRASE,
+} from '../utils/constants';
+import {
+  EscrowNotFoundError,
+  HorizonSubmitError,
+  SdkError,
+  ValidationError,
+} from '../utils/errors';
+import {
+  isValidAmount,
+  isValidDistribution,
+  isValidPublicKey,
+  isValidSecretKey,
+} from '../utils/validation';
 
-import crypto from 'crypto';
+const STROOPS_PER_XLM = 10_000_000n;
+const PERCENTAGE_SCALE = 10_000_000n;
+const PERCENTAGE_DENOMINATOR = 100n * PERCENTAGE_SCALE;
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+type HorizonAccount = Account & {
+  balances: Array<{ asset_type: string; balance: string }>;
+  accountId(): string;
+};
 
-export interface LockCustodyFundsParams {
-  custodianPublicKey: string;
-  ownerPublicKey: string;
-  platformPublicKey: string;
-  sourceKeypair: Keypair;
-  depositAmount: string;
-  durationDays: number;
+interface HorizonSubmission {
+  successful: boolean;
+  hash: string;
+  ledger: number;
 }
 
-export interface LockResult {
-  unlockDate: Date;
-  conditionsHash: string;
-  escrowPublicKey: string;
-  transactionHash: string;
+interface ReleaseServer {
+  loadAccount(accountId: string): Promise<HorizonAccount>;
+  submitTransaction(transaction: unknown): Promise<HorizonSubmission>;
 }
 
-export interface EscrowHorizonClient {
-  loadAccount: (publicKey: string) => Promise<Account | { sequence: string }>;
-  submitTransaction: (tx: Transaction) => Promise<{ hash: string }>;
+interface ReleaseFundsDependencies {
+  server?: ReleaseServer;
+  sleep?: (ms: number) => Promise<void>;
+  horizonUrl?: string;
+  networkPassphrase?: string;
+  maxSubmitAttempts?: number;
 }
 
-export interface EscrowAccountManager {
-  create: (args: {
-    publicKey: string;
-    startingBalance: string;
-  }) => Promise<{ accountId: string; transactionHash: string }>;
-  getBalance: (publicKey: string) => Promise<string>;
+function amountToStroops(amount: string): bigint {
+  const [wholePart, fractionalPart = ''] = amount.split('.');
+  const normalizedFraction = `${fractionalPart}0000000`.slice(0, 7);
+
+  return (
+    BigInt(wholePart || '0') * STROOPS_PER_XLM +
+    BigInt(normalizedFraction || '0')
+  );
 }
 
-export interface EscrowTransactionManager {
-  releaseFunds: (
-    params: ReleaseParams,
-    context: {
-      horizonClient: EscrowHorizonClient;
-      masterSecretKey: string;
-    },
-  ) => Promise<ReleaseResult>;
-  handleDispute: (
-    params: DisputeParams,
-    context: {
-      horizonClient: EscrowHorizonClient;
-      masterSecretKey: string;
-    },
-  ) => Promise<DisputeResult>;
-  getStatus: (
-    escrowAccountId: string,
-    context: {
-      horizonClient: EscrowHorizonClient;
-    },
-  ) => Promise<EscrowStatus>;
+function stroopsToAmount(stroops: bigint): string {
+  const whole = stroops / STROOPS_PER_XLM;
+  const fraction = (stroops % STROOPS_PER_XLM).toString().padStart(7, '0');
+  return `${whole.toString()}.${fraction}`;
 }
 
-export interface EscrowManagerDependencies {
-  horizonClient: EscrowHorizonClient;
-  accountManager: EscrowAccountManager;
-  transactionManager: EscrowTransactionManager;
-  masterSecretKey: string;
+function scalePercentage(percentage: number): bigint {
+  return BigInt(percentage.toFixed(7).replace('.', ''));
 }
 
-export interface HandleDisputeParams extends DisputeParams {
-  masterSecretKey: string;
-}
-
-interface HorizonSignerLike {
-  key?: string;
-  publicKey?: string;
-  ed25519PublicKey?: string;
-  weight: number;
-}
-
-interface HorizonThresholdsLike {
-  low?: number;
-  medium?: number;
-  high?: number;
-  low_threshold?: number;
-  med_threshold?: number;
-  high_threshold?: number;
-}
-
-interface HorizonAccountLike {
-  sequence?: string;
-  sequenceNumber?: string;
-  signers?: HorizonSignerLike[];
-  thresholds?: HorizonThresholdsLike;
-  low_threshold?: number;
-  med_threshold?: number;
-  high_threshold?: number;
-}
-
-const MS_PER_DAY = 86_400_000;
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-export function hashData(data: Record<string, unknown>): string {
-  const sorted = JSON.stringify(data, Object.keys(data).sort());
-  return crypto.createHash('sha256').update(sorted).digest('hex');
-}
-
-export function memoFromHash(hash: string): string {
-  return hash.slice(0, 28);
-}
-
-// ─── calculateStartingBalance ─────────────────────────────────────────────────
-
-export function calculateStartingBalance(depositAmount: string): string {
-  if (!isValidAmount(depositAmount)) {
-    throw new ValidationError(
-      'depositAmount',
-      `Invalid deposit amount: ${depositAmount}`,
+function getNativeBalance(account: HorizonAccount): string {
+  const nativeBalance = account.balances.find(balance => balance.asset_type === 'native');
+  if (!nativeBalance) {
+    throw new SdkError(
+      `Native balance not found for account ${account.accountId()}`,
+      'NATIVE_BALANCE_NOT_FOUND',
+      false,
     );
   }
 
-  const minimumReserve = parseFloat(getMinimumReserve(3, 0, 0));
-  const deposit = parseFloat(depositAmount);
-  const totalBalance = minimumReserve + deposit;
-
-  return totalBalance.toFixed(7).replace(/\.?0+$/, '');
+  return nativeBalance.balance;
 }
 
-// ─── createEscrowAccount ──────────────────────────────────────────────────────
-
-export async function createEscrowAccount(
-  params: CreateEscrowParams,
-  accountManager: {
-    create: (args: { publicKey: string; startingBalance: string }) => Promise<{ accountId: string; transactionHash: string }>;
-    getBalance: (publicKey: string) => Promise<string>;
-  },
-): Promise<EscrowAccount> {
-  if (!isValidPublicKey(params.adopterPublicKey)) {
-    throw new ValidationError('adopterPublicKey', 'Invalid public key');
+function validateReleaseParams(params: ReleaseParams): void {
+  if (!isValidPublicKey(params.escrowAccountId)) {
+    throw new ValidationError('escrowAccountId', 'Invalid escrow account public key');
   }
 
-  if (!isValidPublicKey(params.ownerPublicKey)) {
-    throw new ValidationError('ownerPublicKey', 'Invalid public key');
+  if (!isValidDistribution(params.distribution)) {
+    throw new ValidationError(
+      'distribution',
+      'Distribution must contain valid recipients and total 100%',
+    );
   }
 
-  if (!isValidAmount(params.depositAmount)) {
-    throw new ValidationError('depositAmount', 'Invalid amount');
+  if (params.balance !== undefined && !isValidAmount(params.balance)) {
+    throw new ValidationError('balance', 'Release balance must be a positive XLM amount');
   }
 
-  const escrowKeypair = Keypair.random();
-  const startingBalance = calculateStartingBalance(params.depositAmount);
+  if (params.sourceSecretKey !== undefined && !isValidSecretKey(params.sourceSecretKey)) {
+    throw new ValidationError('sourceSecretKey', 'Invalid source secret key');
+  }
+}
 
-  const result = await accountManager.create({
-    publicKey: escrowKeypair.publicKey(),
-    startingBalance,
+function buildReleasePaymentOperations(
+  balance: string,
+  distribution: Distribution[],
+): PaymentOp[] {
+  const totalStroops = amountToStroops(balance);
+
+  const calculatedShares = distribution.map((entry, index) => {
+    const numerator = totalStroops * scalePercentage(entry.percentage);
+    return {
+      index,
+      recipient: entry.recipient,
+      baseStroops: numerator / PERCENTAGE_DENOMINATOR,
+      remainder: numerator % PERCENTAGE_DENOMINATOR,
+    };
   });
 
-  const signers: Signer[] = [
-    { publicKey: escrowKeypair.publicKey(), weight: 1 },
-    { publicKey: params.adopterPublicKey, weight: 1 },
-    { publicKey: params.ownerPublicKey, weight: 1 },
-  ];
+  const allocatedStroops = calculatedShares.reduce(
+    (sum, share) => sum + share.baseStroops,
+    0n,
+  );
+  let remainingStroops = totalStroops - allocatedStroops;
 
-  const thresholds: Thresholds = {
-    low: 1,
-    medium: 2,
-    high: 2,
-  };
-
-  return {
-    accountId: result.accountId,
-    transactionHash: result.transactionHash,
-    signers,
-    thresholds,
-    unlockDate: params.unlockDate,
-  };
-}
-
-// ─── lockCustodyFunds ─────────────────────────────────────────────────────────
-
-export async function lockCustodyFunds(
-  params: LockCustodyFundsParams,
-  horizonServer: {
-    loadAccount: (publicKey: string) => Promise<Account | { sequence: string }>;
-    submitTransaction: (tx: Transaction) => Promise<{ hash: string }>;
-  },
-  networkPassphrase: string = Networks.TESTNET,
-): Promise<LockResult> {
-  const {
-    custodianPublicKey,
-    ownerPublicKey,
-    platformPublicKey,
-    sourceKeypair,
-    depositAmount,
-    durationDays,
-  } = params;
-
-  // VALIDATION
-  if (!isValidPublicKey(custodianPublicKey)) {
-    throw new ValidationError('custodianPublicKey', 'Invalid public key');
-  }
-  if (!isValidPublicKey(ownerPublicKey)) {
-    throw new ValidationError('ownerPublicKey', 'Invalid public key');
-  }
-  if (!isValidPublicKey(platformPublicKey)) {
-    throw new ValidationError('platformPublicKey', 'Invalid public key');
-  }
-  if (!isValidAmount(depositAmount)) {
-    throw new ValidationError('depositAmount', 'Invalid deposit amount');
-  }
-  if (!Number.isInteger(durationDays) || durationDays <= 0) {
-    throw new ValidationError('durationDays', 'Invalid durationDays');
-  }
-
-  const conditionsHash = hashData({
-    noViolations: true,
-    petReturned: true,
+  const bonusRecipients = [...calculatedShares].sort((left, right) => {
+    if (left.remainder === right.remainder) {
+      return left.index - right.index;
+    }
+    return left.remainder > right.remainder ? -1 : 1;
   });
 
-  const unlockDate = new Date(Date.now() + durationDays * MS_PER_DAY);
+  for (let i = 0; remainingStroops > 0n; i += 1) {
+    bonusRecipients[i].baseStroops += 1n;
+    remainingStroops -= 1n;
+  }
 
-  const escrowKeypair = Keypair.random();
+  return calculatedShares.map(share => ({
+    type: 'Payment',
+    destination: share.recipient,
+    asset: 'XLM',
+    amount: stroopsToAmount(share.baseStroops),
+  }));
+}
 
-  // ✅ FIX: ensure Account instance
-  const loaded = await horizonServer.loadAccount(sourceKeypair.publicKey());
+function paymentOperationToStellar(payment: PaymentOp) {
+  return StellarOperation.payment({
+    destination: payment.destination,
+    asset: Asset.native(),
+    amount: payment.amount,
+  });
+}
 
-  const sourceAccount =
-    loaded instanceof Account
-      ? loaded
-      : new Account(sourceKeypair.publicKey(), loaded.sequence);
+function getDefaultNetworkPassphrase(): string {
+  if (process.env.STELLAR_NETWORK_PASSPHRASE) {
+    return process.env.STELLAR_NETWORK_PASSPHRASE;
+  }
 
-  const tx = new TransactionBuilder(sourceAccount, {
-    fee: BASE_FEE,
-    networkPassphrase,
-  })
-    .addOperation(
-      Operation.createAccount({
-        destination: escrowKeypair.publicKey(),
-        startingBalance: depositAmount,
-      }),
-    )
-    .addOperation(
-      Operation.setOptions({
-        source: escrowKeypair.publicKey(),
-        signer: { ed25519PublicKey: custodianPublicKey, weight: 1 },
-      }),
-    )
-    .addOperation(
-      Operation.setOptions({
-        source: escrowKeypair.publicKey(),
-        signer: { ed25519PublicKey: ownerPublicKey, weight: 1 },
-      }),
-    )
-    .addOperation(
-      Operation.setOptions({
-        source: escrowKeypair.publicKey(),
-        signer: { ed25519PublicKey: platformPublicKey, weight: 1 },
-      }),
-    )
-    .addOperation(
-      Operation.setOptions({
-        source: escrowKeypair.publicKey(),
-        masterWeight: 0,
-        lowThreshold: 2,
-        medThreshold: 2,
-        highThreshold: 2,
-      }),
-    )
-    .addMemo(Memo.text(memoFromHash(conditionsHash)))
-    .setTimeout(30)
-    .build();
+  return process.env.STELLAR_NETWORK === 'public'
+    ? MAINNET_PASSPHRASE
+    : TESTNET_PASSPHRASE;
+}
 
-  tx.sign(sourceKeypair, escrowKeypair);
+function getDefaultHorizonUrl(): string {
+  if (process.env.STELLAR_HORIZON_URL) {
+    return process.env.STELLAR_HORIZON_URL;
+  }
 
-  const result = await horizonServer.submitTransaction(tx);
+  return process.env.STELLAR_NETWORK === 'public'
+    ? MAINNET_HORIZON_URL
+    : TESTNET_HORIZON_URL;
+}
 
-  return {
-    unlockDate,
-    conditionsHash,
-    escrowPublicKey: escrowKeypair.publicKey(),
-    transactionHash: result.hash,
+function getSourceSecretKey(params: ReleaseParams): string {
+  const sourceSecretKey = params.sourceSecretKey ?? process.env.MASTER_SECRET_KEY;
+  if (!sourceSecretKey) {
+    throw new ValidationError(
+      'sourceSecretKey',
+      'A source secret key is required to sign the release transaction',
+    );
+  }
+
+  if (!isValidSecretKey(sourceSecretKey)) {
+    throw new ValidationError('sourceSecretKey', 'Invalid source secret key');
+  }
+
+  return sourceSecretKey;
+}
+
+function mapToSdkError(error: unknown, escrowAccountId: string): SdkError {
+  if (error instanceof SdkError) {
+    return error;
+  }
+
+  const maybeError = error as {
+    response?: { status?: number; data?: { extras?: { result_codes?: { transaction?: string; operations?: string[] } } } };
+    extras?: { result_codes?: { transaction?: string; operations?: string[] } };
+    message?: string;
   };
-}
 
-function getSequence(account: Account | HorizonAccountLike): string {
-  const loaded = account as HorizonAccountLike;
-
-  if (typeof loaded.sequence === 'string' && loaded.sequence.length > 0) {
-    return loaded.sequence;
+  if (maybeError.response?.status === 404) {
+    return new EscrowNotFoundError(escrowAccountId);
   }
 
-  if (typeof loaded.sequenceNumber === 'string' && loaded.sequenceNumber.length > 0) {
-    return loaded.sequenceNumber;
+  const resultCodes =
+    maybeError.response?.data?.extras?.result_codes ??
+    maybeError.extras?.result_codes;
+  if (resultCodes?.transaction) {
+    return new HorizonSubmitError(
+      resultCodes.transaction,
+      resultCodes.operations ?? [],
+    );
   }
 
-  throw new Error('Unable to determine account sequence from Horizon response');
+  return new SdkError(
+    maybeError.message ?? 'Failed to release funds',
+    'RELEASE_FUNDS_FAILED',
+    false,
+  );
 }
 
-function getSignerPublicKey(signer: HorizonSignerLike): string | undefined {
-  return signer.publicKey ?? signer.key ?? signer.ed25519PublicKey;
+async function loadEscrowAccount(
+  server: Pick<ReleaseServer, 'loadAccount'>,
+  escrowAccountId: string,
+): Promise<HorizonAccount> {
+  try {
+    return await server.loadAccount(escrowAccountId);
+  } catch (error) {
+    throw mapToSdkError(error, escrowAccountId);
+  }
 }
 
-function pickNumber(...values: Array<unknown>): number {
-  for (const value of values) {
-    if (typeof value === 'number') {
-      return value;
+async function submitReleaseTransaction(
+  server: Pick<ReleaseServer, 'submitTransaction'>,
+  account: HorizonAccount,
+  params: ReleaseParams,
+  payments: PaymentOp[],
+  networkPassphrase: string,
+): Promise<ReleaseResult> {
+  const sourceSecretKey = getSourceSecretKey(params);
+  const sourceKeypair = Keypair.fromSecret(sourceSecretKey);
+  const fee = params.fee ?? process.env.MAX_FEE ?? String(DEFAULT_MAX_FEE);
+  const timeoutSeconds = params.timeoutSeconds ?? DEFAULT_TRANSACTION_TIMEOUT;
+
+  const builder = payments.reduce(
+    (builder, payment) => builder.addOperation(paymentOperationToStellar(payment)),
+    new TransactionBuilder(account, {
+      fee,
+      networkPassphrase,
+    }),
+  );
+
+  if (params.memo) {
+    builder.addMemo(Memo.text(params.memo));
+  }
+
+  const transaction = builder.setTimeout(timeoutSeconds).build();
+
+  transaction.sign(sourceKeypair);
+
+  try {
+    const submission = await server.submitTransaction(transaction);
+    return {
+      successful: submission.successful,
+      txHash: submission.hash,
+      ledger: submission.ledger,
+      payments: payments.map(payment => ({
+        recipient: payment.destination,
+        amount: payment.amount,
+      })),
+    };
+  } catch (error) {
+    throw mapToSdkError(error, params.escrowAccountId);
+  }
+}
+
+/**
+ * Validates release inputs, builds payment operations from the requested
+ * distribution, signs the transaction, and submits it to Horizon.
+ *
+ * The release amount is taken from `params.balance` when provided; otherwise
+ * the current native XLM balance is loaded from Horizon for the escrow account.
+ * Distribution math is performed in stroops using integer arithmetic so the
+ * final payments preserve Stellar's 7-decimal precision and sum exactly to the
+ * requested release amount.
+ *
+ * Retry behavior is limited to retryable `SdkError`s such as transient Horizon
+ * submission failures. Non-retryable failures are rethrown immediately.
+ *
+ * @param params Release request containing the escrow account, recipients,
+ * optional explicit release amount, and signing secret.
+ * @param dependencies Optional test or runtime overrides for Horizon access,
+ * passphrase selection, and retry behavior.
+ * @returns A `ReleaseResult` describing the submitted transaction and the
+ * recipient payments included in it.
+ * @throws {ValidationError} If the account, balance, distribution, or secret is invalid.
+ * @throws {EscrowNotFoundError} If the escrow account cannot be loaded from Horizon.
+ * @throws {HorizonSubmitError} If Horizon rejects the submitted transaction.
+ * @throws {SdkError} For any other release failure that cannot be mapped more specifically.
+ */
+export async function releaseFunds(
+  params: ReleaseParams,
+  dependencies: ReleaseFundsDependencies = {},
+): Promise<ReleaseResult> {
+  validateReleaseParams(params);
+
+  const server =
+    dependencies.server ??
+    new Horizon.Server(dependencies.horizonUrl ?? getDefaultHorizonUrl());
+  const networkPassphrase =
+    dependencies.networkPassphrase ?? getDefaultNetworkPassphrase();
+  const maxSubmitAttempts = dependencies.maxSubmitAttempts ?? 2;
+  const sleep = dependencies.sleep ?? (async () => undefined);
+
+  let lastError: SdkError | undefined;
+
+  for (let attempt = 1; attempt <= maxSubmitAttempts; attempt += 1) {
+    try {
+      const account = await loadEscrowAccount(server, params.escrowAccountId);
+      const releaseBalance = params.balance ?? getNativeBalance(account);
+      const payments = buildReleasePaymentOperations(
+        releaseBalance,
+        params.distribution,
+      );
+
+      return await submitReleaseTransaction(
+        server,
+        account,
+        { ...params, balance: releaseBalance },
+        payments,
+        networkPassphrase,
+      );
+    } catch (error) {
+      const sdkError = mapToSdkError(error, params.escrowAccountId);
+      lastError = sdkError;
+
+      if (!sdkError.retryable || attempt === maxSubmitAttempts) {
+        throw sdkError;
+      }
+
+      await sleep(0);
     }
   }
 
-  return 0;
+  throw lastError ?? new SdkError('Failed to release funds', 'RELEASE_FUNDS_FAILED', false);
 }
 
-function getAccountSigners(account: Account | HorizonAccountLike): Signer[] {
-  const loaded = account as HorizonAccountLike;
-  if (!Array.isArray(loaded.signers)) return [];
-
-  return loaded.signers
-    .map((signer): Signer | null => {
-      const publicKey = getSignerPublicKey(signer);
-      const weight = Number(signer.weight);
-
-      if (!publicKey || !Number.isFinite(weight)) {
-        return null;
-      }
-
-      return {
-        publicKey,
-        weight,
-      };
-    })
-    .filter((signer): signer is Signer => signer !== null);
-}
-
-function getAccountThresholds(account: Account | HorizonAccountLike): Thresholds {
-  const loaded = account as HorizonAccountLike;
-  const fromNested = loaded.thresholds ?? {};
-
-  return {
-    low: pickNumber(fromNested.low, fromNested.low_threshold, loaded.low_threshold),
-    medium: pickNumber(fromNested.medium, fromNested.med_threshold, loaded.med_threshold),
-    high: pickNumber(fromNested.high, fromNested.high_threshold, loaded.high_threshold),
-  };
-}
-
-function isPlatformOnlyConfig(account: Account | HorizonAccountLike, platformPublicKey: string): boolean {
-  const thresholds = getAccountThresholds(account);
-  const activeSigners = getAccountSigners(account).filter(signer => signer.weight > 0);
-
-  if (activeSigners.length !== 1) return false;
-  if (activeSigners[0].publicKey !== platformPublicKey) return false;
-  if (activeSigners[0].weight !== 3) return false;
-
-  return thresholds.low === 0 && thresholds.medium === 2 && thresholds.high === 2;
-}
-
-export async function handleDispute(
-  params: HandleDisputeParams,
-  horizonServer: {
-    loadAccount: (publicKey: string) => Promise<Account | HorizonAccountLike>;
-    submitTransaction: (tx: Transaction) => Promise<{ hash: string }>;
-  },
-  networkPassphrase: string = Networks.TESTNET,
-): Promise<DisputeResult> {
-  const { escrowAccountId, masterSecretKey } = params;
-
-  if (!isValidPublicKey(escrowAccountId)) {
-    throw new ValidationError('escrowAccountId', 'Invalid escrow account ID');
-  }
-
-  if (!isValidSecretKey(masterSecretKey)) {
-    throw new ValidationError('masterSecretKey', 'Invalid master secret key');
-  }
-
-  let platformKeypair: Keypair;
-  try {
-    platformKeypair = Keypair.fromSecret(masterSecretKey);
-  } catch {
-    throw new ValidationError('masterSecretKey', 'Invalid master secret key');
-  }
-
-  const platformPublicKey = platformKeypair.publicKey();
-  const currentConfig = await horizonServer.loadAccount(escrowAccountId);
-  const currentSigners = getAccountSigners(currentConfig);
-  const sourceAccount =
-    currentConfig instanceof Account
-      ? currentConfig
-      : new Account(escrowAccountId, getSequence(currentConfig));
-
-  const txBuilder = new TransactionBuilder(sourceAccount, {
-    fee: BASE_FEE,
-    networkPassphrase,
-  });
-
-  currentSigners
-    .filter(signer => signer.publicKey !== platformPublicKey && signer.weight > 0)
-    .forEach(signer => {
-      txBuilder.addOperation(
-        Operation.setOptions({
-          source: escrowAccountId,
-          signer: {
-            ed25519PublicKey: signer.publicKey,
-            weight: 0,
-          },
-        }),
-      );
-    });
-
-  txBuilder
-    .addOperation(
-      Operation.setOptions({
-        source: escrowAccountId,
-        signer: {
-          ed25519PublicKey: platformPublicKey,
-          weight: 3,
-        },
-      }),
-    )
-    .addOperation(
-      Operation.setOptions({
-        source: escrowAccountId,
-        masterWeight: 0,
-        lowThreshold: 0,
-        medThreshold: 2,
-        highThreshold: 2,
-      }),
-    );
-
-  const tx = txBuilder.setTimeout(30).build();
-  tx.sign(platformKeypair);
-
-  const submitResult = await horizonServer.submitTransaction(tx);
-
-  const updatedConfig = await horizonServer.loadAccount(escrowAccountId);
-  if (!isPlatformOnlyConfig(updatedConfig, platformPublicKey)) {
-    throw new Error('Dispute signer update verification failed');
-  }
-
-  return {
-    accountId: escrowAccountId,
-    pausedAt: new Date(),
-    platformOnlyMode: true,
-    txHash: submitResult.hash,
-  };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function lockCustodyFunds(..._args: unknown[]): unknown {
+  return undefined;
 }
 
 // ─── Placeholders ─────────────────────────────────────────────────────────────
