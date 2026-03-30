@@ -54,11 +54,11 @@ export class TransactionManager {
     return buildTransaction(params, this.config.horizonClient);
   }
 
-  sign(transaction: any, keypairs: any[]) {
+  sign(transaction: unknown, keypairs: unknown[]) {
     return signTransaction(transaction, keypairs);
   }
 
-  async submit(transaction: any) {
+  async submit(transaction: unknown) {
     return submitTransaction(transaction, this.config.horizonClient);
   }
 
@@ -70,7 +70,7 @@ export class TransactionManager {
     return estimateTransactionFee(this.config.horizonClient);
   }
 
-  toXDR(transaction: any) {
+  toXDR(transaction: unknown) {
     return transactionToXDR(transaction);
   }
 
@@ -80,52 +80,54 @@ export class TransactionManager {
 }
 
 export interface TransactionManagerConfig {
-  horizonClient: any;
+  horizonClient: unknown;
   networkPassphrase?: string;
   defaultTimeout?: number;
   maxRetries?: number;
+  maxFee?: number;
+  transactionTimeout?: number;
 }
 
 export interface BuildParams {
   sourceAccount: string;
-  operations: any[];
+  operations: unknown[];
   memo?: string;
   fee?: string;
   timeoutSeconds?: number;
 }
 
 // Standalone transaction functions
-export async function buildTransaction(params: BuildParams, horizonClient: any): Promise<any> {
+export async function buildTransaction(_params: BuildParams, _horizonClient: unknown): Promise<unknown> {
   // Placeholder implementation
   return undefined;
 }
 
-export function signTransaction(transaction: any, keypairs: any[]): any {
+export function signTransaction(transaction: unknown, _keypairs: unknown[]): unknown {
   // Placeholder implementation
   return transaction;
 }
 
-export async function submitTransaction(transaction: any, horizonClient: any): Promise<any> {
+export async function submitTransaction(_transaction: unknown, _horizonClient: unknown): Promise<unknown> {
   // Placeholder implementation
   return { successful: true, hash: 'test-hash', ledger: 12345 };
 }
 
-export async function monitorTransaction(hash: string, horizonClient: any): Promise<any> {
+export async function monitorTransaction(hash: string, _horizonClient: unknown): Promise<unknown> {
   // Placeholder implementation
   return { confirmed: true, confirmations: 1, ledger: 12345, hash, successful: true };
 }
 
-export async function estimateTransactionFee(horizonClient: any): Promise<string> {
+export async function estimateTransactionFee(_horizonClient: unknown): Promise<string> {
   // Placeholder implementation
   return '100';
 }
 
-export function transactionToXDR(transaction: any): string {
+export function transactionToXDR(_transaction: unknown): string {
   // Placeholder implementation
   return 'test-xdr';
 }
 
-export function transactionFromXDR(xdr: string, networkPassphrase: string): any {
+export function transactionFromXDR(_xdr: string, _networkPassphrase: string): unknown {
   // Placeholder implementation
   return { hash: 'test-hash' };
 }
