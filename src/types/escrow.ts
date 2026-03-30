@@ -66,6 +66,12 @@ export interface Distribution {
 export interface ReleaseParams {
   escrowAccountId: string;
   distribution: Distribution[];
+  balance?: string;
+  masterSecretKey?: string;
+  sourceSecretKey?: string;
+  memo?: string;
+  fee?: string;
+  timeoutSeconds?: number;
 }
 
 /** Recorded payment made to a recipient during settlement. */

@@ -1,14 +1,45 @@
 import {
+  Account,
+  Keypair,
+} from '@stellar/stellar-sdk';
+import {
   createEscrowAccount,
   calculateStartingBalance,
   handleDispute,
   anchorTrustHash,
   verifyEventHash,
+  releaseFunds,
 } from '../../../src/escrow';
-import { ValidationError } from '../../../src/utils/errors';
-import { CreateEscrowParams } from '../../../src/types/escrow';
-import { InsufficientBalanceError } from '../../../src/utils/errors';
-import { Account, Keypair, Operation } from '@stellar/stellar-sdk';
+import { asPercentage } from '../../../src/types/escrow';
+import { HorizonSubmitError } from '../../../src/utils/errors';
+
+function createHorizonAccount(accountId: string, balance: string, sequence = '1') {
+  return Object.assign(new Account(accountId, sequence), {
+    balances: [{ asset_type: 'native', balance }],
+  });
+}
+
+function createServer(balance: string) {
+  return {
+    loadAccount: jest.fn(async (accountId: string) => createHorizonAccount(accountId, balance)),
+    submitTransaction: jest.fn(async (_transaction: unknown) => ({
+      successful: true,
+      hash: 'tx-hash-123',
+      ledger: 123456,
+    })),
+  };
+}
+
+function createTransactionManager() {
+  return {
+    submit: jest.fn(async (transaction: unknown) => ({
+      successful: true,
+      hash: 'tx-hash-123',
+      ledger: 123456,
+      transaction,
+    })),
+  };
+}
 
 describe('calculateStartingBalance', () => {
   describe('happy path', () => {
@@ -191,419 +222,200 @@ describe('placeholder functions', () => {
   });
 });
 
-describe('handleDispute', () => {
-  const escrowAccountId = Keypair.random().publicKey();
-  const platformKeypair = Keypair.random();
-  const adopterPublicKey = Keypair.random().publicKey();
-  const ownerPublicKey = Keypair.random().publicKey();
+describe('releaseFunds', () => {
+  it('releases the full fetched balance on the happy path', async () => {
+    const escrow = Keypair.random();
+    const master = Keypair.random();
+    const recipient = Keypair.random();
+    const server = createServer('500.0000000');
+    const transactionManager = createTransactionManager();
 
-  const mockHorizonServer = {
-    loadAccount: jest.fn(),
-    submitTransaction: jest.fn(),
-  };
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    jest.restoreAllMocks();
-  });
-
-  it('sets adopter and owner signer weights to zero and sets platform to weight 3', async () => {
-    const setOptionsSpy = jest.spyOn(Operation, 'setOptions');
-
-    mockHorizonServer.loadAccount
-      .mockResolvedValueOnce({
-        sequence: '101',
-        signers: [
-          { key: adopterPublicKey, weight: 1 },
-          { key: ownerPublicKey, weight: 1 },
-          { key: platformKeypair.publicKey(), weight: 1 },
-        ],
-        thresholds: { low: 1, medium: 2, high: 2 },
-      })
-      .mockResolvedValueOnce({
-        sequence: '102',
-        signers: [
-          { key: adopterPublicKey, weight: 0 },
-          { key: ownerPublicKey, weight: 0 },
-          { key: platformKeypair.publicKey(), weight: 3 },
-        ],
-        thresholds: { low: 0, medium: 2, high: 2 },
-      });
-
-    mockHorizonServer.submitTransaction.mockResolvedValue({ hash: 'dispute-hash' });
-
-    const result = await handleDispute(
+    const result = await releaseFunds(
       {
-        escrowAccountId,
-        masterSecretKey: platformKeypair.secret(),
+        escrowAccountId: escrow.publicKey(),
+        masterSecretKey: master.secret(),
+        distribution: [
+          { recipient: recipient.publicKey(), percentage: asPercentage(100) },
+        ],
       },
-      mockHorizonServer,
+      { server, transactionManager },
     );
 
-    expect(result.accountId).toBe(escrowAccountId);
-    expect(result.platformOnlyMode).toBe(true);
-    expect(result.txHash).toBe('dispute-hash');
-    expect(result.pausedAt).toBeInstanceOf(Date);
-
-    expect(mockHorizonServer.loadAccount).toHaveBeenCalledTimes(2);
-    expect(mockHorizonServer.loadAccount).toHaveBeenNthCalledWith(1, escrowAccountId);
-    expect(mockHorizonServer.loadAccount).toHaveBeenNthCalledWith(2, escrowAccountId);
-
-    expect(setOptionsSpy).toHaveBeenCalledWith({
-      source: escrowAccountId,
-      signer: {
-        ed25519PublicKey: adopterPublicKey,
-        weight: 0,
-      },
-    });
-
-    expect(setOptionsSpy).toHaveBeenCalledWith({
-      source: escrowAccountId,
-      signer: {
-        ed25519PublicKey: ownerPublicKey,
-        weight: 0,
-      },
-    });
-
-    expect(setOptionsSpy).toHaveBeenCalledWith({
-      source: escrowAccountId,
-      signer: {
-        ed25519PublicKey: platformKeypair.publicKey(),
-        weight: 3,
-      },
-    });
-
-    expect(setOptionsSpy).toHaveBeenCalledWith({
-      source: escrowAccountId,
-      masterWeight: 0,
-      lowThreshold: 0,
-      medThreshold: 2,
-      highThreshold: 2,
-    });
-  });
-
-  it('throws ValidationError for invalid escrow account id', async () => {
-    await expect(
-      handleDispute(
-        {
-          escrowAccountId: 'invalid',
-          masterSecretKey: platformKeypair.secret(),
-        },
-        mockHorizonServer,
-      ),
-    ).rejects.toThrow(ValidationError);
-  });
-
-  it('throws ValidationError for invalid master secret key', async () => {
-    await expect(
-      handleDispute(
-        {
-          escrowAccountId,
-          masterSecretKey: 'invalid',
-        },
-        mockHorizonServer,
-      ),
-    ).rejects.toThrow(ValidationError);
-  });
-
-  it('throws ValidationError for checksum-invalid master secret key', async () => {
-    await expect(
-      handleDispute(
-        {
-          escrowAccountId,
-          masterSecretKey: `S${'A'.repeat(55)}`,
-        },
-        mockHorizonServer,
-      ),
-    ).rejects.toThrow(ValidationError);
-  });
-
-  it('is idempotent when account is already in platform-only mode', async () => {
-    mockHorizonServer.loadAccount
-      .mockResolvedValueOnce({
-        sequence: '201',
-        signers: [
-          { key: adopterPublicKey, weight: 0 },
-          { key: ownerPublicKey, weight: 0 },
-          { key: platformKeypair.publicKey(), weight: 3 },
-        ],
-        thresholds: { low: 0, medium: 2, high: 2 },
-      })
-      .mockResolvedValueOnce({
-        sequence: '202',
-        signers: [
-          { key: adopterPublicKey, weight: 0 },
-          { key: ownerPublicKey, weight: 0 },
-          { key: platformKeypair.publicKey(), weight: 3 },
-        ],
-        thresholds: { low: 0, medium: 2, high: 2 },
-      });
-
-    mockHorizonServer.submitTransaction.mockResolvedValue({ hash: 'idempotent-hash' });
-
-    await expect(
-      handleDispute(
-        {
-          escrowAccountId,
-          masterSecretKey: platformKeypair.secret(),
-        },
-        mockHorizonServer,
-      ),
-    ).resolves.toMatchObject({
-      platformOnlyMode: true,
-      txHash: 'idempotent-hash',
-    });
-  });
-
-  it('supports sequenceNumber-only Horizon responses', async () => {
-    mockHorizonServer.loadAccount
-      .mockResolvedValueOnce({
-        sequenceNumber: '501',
-        signers: [
-          { key: adopterPublicKey, weight: 1 },
-          { key: ownerPublicKey, weight: 1 },
-          { key: platformKeypair.publicKey(), weight: 1 },
-        ],
-        thresholds: { low: 1, medium: 2, high: 2 },
-      })
-      .mockResolvedValueOnce({
-        sequenceNumber: '502',
-        signers: [
-          { key: adopterPublicKey, weight: 0 },
-          { key: ownerPublicKey, weight: 0 },
-          { key: platformKeypair.publicKey(), weight: 3 },
-        ],
-        thresholds: { low: 0, medium: 2, high: 2 },
-      });
-
-    mockHorizonServer.submitTransaction.mockResolvedValue({ hash: 'sequence-number-hash' });
-
-    await expect(
-      handleDispute(
-        {
-          escrowAccountId,
-          masterSecretKey: platformKeypair.secret(),
-        },
-        mockHorizonServer,
-      ),
-    ).resolves.toMatchObject({
-      txHash: 'sequence-number-hash',
-      platformOnlyMode: true,
-    });
-  });
-
-  it('supports top-level threshold keys from Horizon response', async () => {
-    mockHorizonServer.loadAccount
-      .mockResolvedValueOnce({
-        sequence: '601',
-        signers: [
-          { key: adopterPublicKey, weight: 1 },
-          { key: ownerPublicKey, weight: 1 },
-          { key: platformKeypair.publicKey(), weight: 1 },
-        ],
-        thresholds: { low: 1, medium: 2, high: 2 },
-      })
-      .mockResolvedValueOnce({
-        sequence: '602',
-        signers: [
-          { key: adopterPublicKey, weight: 0 },
-          { key: ownerPublicKey, weight: 0 },
-          { key: platformKeypair.publicKey(), weight: 3 },
-        ],
-        low_threshold: 0,
-        med_threshold: 2,
-        high_threshold: 2,
-      });
-
-    mockHorizonServer.submitTransaction.mockResolvedValue({ hash: 'threshold-hash' });
-
-    await expect(
-      handleDispute(
-        {
-          escrowAccountId,
-          masterSecretKey: platformKeypair.secret(),
-        },
-        mockHorizonServer,
-      ),
-    ).resolves.toMatchObject({
-      txHash: 'threshold-hash',
-      platformOnlyMode: true,
-    });
-  });
-
-  it('supports signer keys from ed25519PublicKey field', async () => {
-    mockHorizonServer.loadAccount
-      .mockResolvedValueOnce({
-        sequence: '651',
-        signers: [
-          { ed25519PublicKey: adopterPublicKey, weight: 1 },
-          { ed25519PublicKey: ownerPublicKey, weight: 1 },
-          { ed25519PublicKey: platformKeypair.publicKey(), weight: 1 },
-        ],
-        thresholds: { low: 1, medium: 2, high: 2 },
-      })
-      .mockResolvedValueOnce({
-        sequence: '652',
-        signers: [
-          { ed25519PublicKey: adopterPublicKey, weight: 0 },
-          { ed25519PublicKey: ownerPublicKey, weight: 0 },
-          { ed25519PublicKey: platformKeypair.publicKey(), weight: 3 },
-        ],
-        thresholds: { low: 0, medium: 2, high: 2 },
-      });
-
-    mockHorizonServer.submitTransaction.mockResolvedValue({ hash: 'ed25519-fallback-hash' });
-
-    await expect(
-      handleDispute(
-        {
-          escrowAccountId,
-          masterSecretKey: platformKeypair.secret(),
-        },
-        mockHorizonServer,
-      ),
-    ).resolves.toMatchObject({
-      txHash: 'ed25519-fallback-hash',
-      platformOnlyMode: true,
-    });
-  });
-
-  it('handles Account instance from loadAccount', async () => {
-    mockHorizonServer.loadAccount
-      .mockResolvedValueOnce(new Account(escrowAccountId, '701'))
-      .mockResolvedValueOnce({
-        sequence: '702',
-        signers: [{ key: platformKeypair.publicKey(), weight: 3 }],
-        thresholds: { low: 0, medium: 2, high: 2 },
-      });
-
-    mockHorizonServer.submitTransaction.mockResolvedValue({ hash: 'account-instance-hash' });
-
-    await expect(
-      handleDispute(
-        {
-          escrowAccountId,
-          masterSecretKey: platformKeypair.secret(),
-        },
-        mockHorizonServer,
-      ),
-    ).resolves.toMatchObject({
-      txHash: 'account-instance-hash',
-      platformOnlyMode: true,
-    });
-  });
-
-  it('ignores invalid signer entries from Horizon and still succeeds', async () => {
-    mockHorizonServer.loadAccount
-      .mockResolvedValueOnce({
-        sequence: '801',
-        signers: [
-          { key: adopterPublicKey, weight: 1 },
-          { key: ownerPublicKey, weight: 1 },
-          { key: platformKeypair.publicKey(), weight: 1 },
-          { weight: 1 },
-          { key: Keypair.random().publicKey(), weight: Number.NaN },
-        ],
-        thresholds: { low: 1, medium: 2, high: 2 },
-      })
-      .mockResolvedValueOnce({
-        sequence: '802',
-        signers: [
-          { key: adopterPublicKey, weight: 0 },
-          { key: ownerPublicKey, weight: 0 },
-          { key: platformKeypair.publicKey(), weight: 3 },
-        ],
-        thresholds: { low: 0, medium: 2, high: 2 },
-      });
-
-    mockHorizonServer.submitTransaction.mockResolvedValue({ hash: 'invalid-signer-filter-hash' });
-
-    await expect(
-      handleDispute(
-        {
-          escrowAccountId,
-          masterSecretKey: platformKeypair.secret(),
-        },
-        mockHorizonServer,
-      ),
-    ).resolves.toMatchObject({
-      txHash: 'invalid-signer-filter-hash',
-      platformOnlyMode: true,
-    });
-  });
-
-  it('throws when Horizon account response has no sequence value', async () => {
-    mockHorizonServer.loadAccount.mockResolvedValueOnce({
-      signers: [{ key: platformKeypair.publicKey(), weight: 1 }],
-      thresholds: { low: 1, medium: 2, high: 2 },
-    });
-
-    await expect(
-      handleDispute(
-        {
-          escrowAccountId,
-          masterSecretKey: platformKeypair.secret(),
-        },
-        mockHorizonServer,
-      ),
-    ).rejects.toThrow('Unable to determine account sequence from Horizon response');
-  });
-
-  it('throws when post-submit signer verification fails', async () => {
-    mockHorizonServer.loadAccount
-      .mockResolvedValueOnce({
-        sequence: '301',
-        signers: [
-          { key: adopterPublicKey, weight: 1 },
-          { key: ownerPublicKey, weight: 1 },
-          { key: platformKeypair.publicKey(), weight: 1 },
-        ],
-        thresholds: { low: 1, medium: 2, high: 2 },
-      })
-      .mockResolvedValueOnce({
-        sequence: '302',
-        signers: [
-          { key: adopterPublicKey, weight: 0 },
-          { key: ownerPublicKey, weight: 1 },
-          { key: platformKeypair.publicKey(), weight: 3 },
-        ],
-        thresholds: { low: 0, medium: 2, high: 2 },
-      });
-
-    mockHorizonServer.submitTransaction.mockResolvedValue({ hash: 'bad-hash' });
-
-    await expect(
-      handleDispute(
-        {
-          escrowAccountId,
-          masterSecretKey: platformKeypair.secret(),
-        },
-        mockHorizonServer,
-      ),
-    ).rejects.toThrow('Dispute signer update verification failed');
-  });
-
-  it('re-throws submitTransaction errors from Horizon', async () => {
-    mockHorizonServer.loadAccount.mockResolvedValue({
-      sequence: '901',
-      signers: [
-        { key: adopterPublicKey, weight: 1 },
-        { key: ownerPublicKey, weight: 1 },
-        { key: platformKeypair.publicKey(), weight: 1 },
+    expect(result).toEqual({
+      successful: true,
+      txHash: 'tx-hash-123',
+      ledger: 123456,
+      payments: [
+        { recipient: recipient.publicKey(), amount: '500.0000000' },
       ],
-      thresholds: { low: 1, medium: 2, high: 2 },
     });
 
-    mockHorizonServer.submitTransaction.mockRejectedValue(new Error('tx_bad_auth'));
+    const submittedTransaction = transactionManager.submit.mock.calls[0]?.[0] as {
+      operations: Array<Record<string, unknown>>;
+    };
+    expect(submittedTransaction.operations).toHaveLength(1);
+    expect(submittedTransaction.operations[0]).toMatchObject({
+      type: 'payment',
+      destination: recipient.publicKey(),
+      amount: '500.0000000',
+    });
+    expect(transactionManager.submit).toHaveBeenCalledTimes(1);
+    expect(server.submitTransaction).not.toHaveBeenCalled();
+  });
+
+  it('uses masterSecretKey for signing and keeps payment amounts aligned with distribution', async () => {
+    const escrow = Keypair.random();
+    const master = Keypair.random();
+    const recipientA = Keypair.random();
+    const recipientB = Keypair.random();
+    const server = createServer('999.0000000');
+    const transactionManager = createTransactionManager();
+    const fromSecretSpy = jest.spyOn(Keypair, 'fromSecret');
+
+    try {
+      const result = await releaseFunds(
+        {
+          escrowAccountId: escrow.publicKey(),
+          masterSecretKey: master.secret(),
+          balance: '500.0000000',
+          distribution: [
+            { recipient: recipientA.publicKey(), percentage: asPercentage(60) },
+            { recipient: recipientB.publicKey(), percentage: asPercentage(40) },
+          ],
+        },
+        { server, transactionManager },
+      );
+
+      expect(result.payments).toEqual([
+        { recipient: recipientA.publicKey(), amount: '300.0000000' },
+        { recipient: recipientB.publicKey(), amount: '200.0000000' },
+      ]);
+
+      const submittedTransaction = transactionManager.submit.mock.calls[0]?.[0] as {
+        operations: Array<Record<string, unknown>>;
+        signatures: unknown[];
+      };
+      expect(submittedTransaction.operations).toHaveLength(2);
+      expect(submittedTransaction.operations[0]).toMatchObject({
+        type: 'payment',
+        destination: recipientA.publicKey(),
+        amount: '300.0000000',
+      });
+      expect(submittedTransaction.operations[1]).toMatchObject({
+        type: 'payment',
+        destination: recipientB.publicKey(),
+        amount: '200.0000000',
+      });
+      expect(submittedTransaction.signatures.length).toBe(1);
+      expect(fromSecretSpy).toHaveBeenCalledWith(master.secret());
+    } finally {
+      fromSecretSpy.mockRestore();
+    }
+  });
+
+  it('supports a 100% refund to a single recipient', async () => {
+    const escrow = Keypair.random();
+    const master = Keypair.random();
+    const refundRecipient = Keypair.random();
+    const server = createServer('999.0000000');
+    const transactionManager = createTransactionManager();
+
+    const result = await releaseFunds(
+      {
+        escrowAccountId: escrow.publicKey(),
+        masterSecretKey: master.secret(),
+        balance: '125.0000000',
+        distribution: [
+          { recipient: refundRecipient.publicKey(), percentage: asPercentage(100) },
+        ],
+      },
+      { server, transactionManager },
+    );
+
+    expect(result.payments).toEqual([
+      { recipient: refundRecipient.publicKey(), amount: '125.0000000' },
+    ]);
+    expect(server.loadAccount).toHaveBeenCalledTimes(1);
+    expect(transactionManager.submit).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry when submit fails with a non-retryable SdkError', async () => {
+    const escrow = Keypair.random();
+    const master = Keypair.random();
+    const recipient = Keypair.random();
+    const server = {
+      loadAccount: jest.fn(async (accountId: string) =>
+        createHorizonAccount(accountId, '500.0000000'),
+      ),
+      submitTransaction: jest.fn(),
+    };
+    const transactionManager = {
+      submit: jest.fn(async (_transaction: unknown) => {
+        throw new HorizonSubmitError('tx_bad_auth');
+      }),
+    };
 
     await expect(
-      handleDispute(
+      releaseFunds(
         {
-          escrowAccountId,
-          masterSecretKey: platformKeypair.secret(),
+          escrowAccountId: escrow.publicKey(),
+          masterSecretKey: master.secret(),
+          balance: '500.0000000',
+          distribution: [
+            { recipient: recipient.publicKey(), percentage: asPercentage(100) },
+          ],
         },
-        mockHorizonServer,
+        { server, transactionManager, maxSubmitAttempts: 3 },
       ),
-    ).rejects.toThrow('tx_bad_auth');
+    ).rejects.toMatchObject({
+      code: 'HORIZON_SUBMIT_ERROR',
+      retryable: false,
+      resultCode: 'tx_bad_auth',
+    });
+
+    expect(server.loadAccount).toHaveBeenCalledTimes(1);
+    expect(transactionManager.submit).toHaveBeenCalledTimes(1);
+  });
+
+  it('surfaces op_no_destination as a HorizonSubmitError with operation codes intact', async () => {
+    const escrow = Keypair.random();
+    const master = Keypair.random();
+    const recipient = Keypair.random();
+    const server = createServer('500.0000000');
+    const transactionManager = {
+      submit: jest.fn(async (_transaction: unknown) => {
+        throw {
+          response: {
+            data: {
+              extras: {
+                result_codes: {
+                  transaction: 'tx_failed',
+                  operations: ['op_no_destination'],
+                },
+              },
+            },
+          },
+        };
+      }),
+    };
+
+    await expect(
+      releaseFunds(
+        {
+          escrowAccountId: escrow.publicKey(),
+          masterSecretKey: master.secret(),
+          balance: '500.0000000',
+          distribution: [
+            { recipient: recipient.publicKey(), percentage: asPercentage(100) },
+          ],
+        },
+        { server, transactionManager, maxSubmitAttempts: 1 },
+      ),
+    ).rejects.toMatchObject({
+      code: 'HORIZON_SUBMIT_ERROR',
+      resultCode: 'tx_failed',
+      operationCodes: ['op_no_destination'],
+    });
   });
 });
+
