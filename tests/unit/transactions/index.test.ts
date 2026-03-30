@@ -1,10 +1,95 @@
 
-import { buildMultisigTransaction, fetchTransactionOnce } from '../../../src/transactions';
-import { HorizonSubmitError } from '../../../src/utils/errors';
+import { Keypair, Operation } from '@stellar/stellar-sdk';
+
+import { buildMultisigTransaction, buildSetOptionsOp, fetchTransactionOnce } from '../../../src/transactions';
+import { HorizonSubmitError, ValidationError } from '../../../src/utils/errors';
 
 describe('transactions module placeholders', () => {
   it('exports callable placeholder function', () => {
     expect(buildMultisigTransaction()).toBeUndefined();
+  });
+});
+
+describe('buildSetOptionsOp', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('builds setOptions operation for adding a signer', () => {
+    const signerPublicKey = Keypair.random().publicKey();
+    const setOptionsSpy = jest.spyOn(Operation, 'setOptions');
+
+    const operations = buildSetOptionsOp({
+      signers: [{ publicKey: signerPublicKey, weight: 1 }],
+    });
+
+    expect(operations).toHaveLength(1);
+    expect(setOptionsSpy).toHaveBeenCalledWith({
+      signer: { ed25519PublicKey: signerPublicKey, weight: 1 },
+    });
+  });
+
+  it('builds setOptions operation for removing a signer with weight 0', () => {
+    const signerPublicKey = Keypair.random().publicKey();
+    const setOptionsSpy = jest.spyOn(Operation, 'setOptions');
+
+    const operations = buildSetOptionsOp({
+      signers: [{ publicKey: signerPublicKey, weight: 0 }],
+    });
+
+    expect(operations).toHaveLength(1);
+    expect(setOptionsSpy).toHaveBeenCalledWith({
+      signer: { ed25519PublicKey: signerPublicKey, weight: 0 },
+    });
+  });
+
+  it('builds setOptions operation for thresholds', () => {
+    const setOptionsSpy = jest.spyOn(Operation, 'setOptions');
+
+    const operations = buildSetOptionsOp({
+      thresholds: { low: 1, medium: 2, high: 3 },
+    });
+
+    expect(operations).toHaveLength(1);
+    expect(setOptionsSpy).toHaveBeenCalledWith({
+      lowThreshold: 1,
+      medThreshold: 2,
+      highThreshold: 3,
+    });
+  });
+
+  it('builds mixed setOptions operations for signers and thresholds', () => {
+    const signerPublicKey = Keypair.random().publicKey();
+    const setOptionsSpy = jest.spyOn(Operation, 'setOptions');
+
+    const operations = buildSetOptionsOp({
+      signers: [{ publicKey: signerPublicKey, weight: 2 }],
+      thresholds: { low: 1, medium: 2, high: 2 },
+      masterWeight: 0,
+    });
+
+    expect(operations).toHaveLength(2);
+    expect(setOptionsSpy).toHaveBeenNthCalledWith(1, {
+      signer: { ed25519PublicKey: signerPublicKey, weight: 2 },
+    });
+    expect(setOptionsSpy).toHaveBeenNthCalledWith(2, {
+      masterWeight: 0,
+      lowThreshold: 1,
+      medThreshold: 2,
+      highThreshold: 2,
+    });
+  });
+
+  it('throws ValidationError when a signer public key is invalid', () => {
+    const setOptionsSpy = jest.spyOn(Operation, 'setOptions');
+
+    expect(() =>
+      buildSetOptionsOp({
+        signers: [{ publicKey: 'INVALID_PUBLIC_KEY', weight: 1 }],
+      }),
+    ).toThrow(ValidationError);
+
+    expect(setOptionsSpy).not.toHaveBeenCalled();
   });
 });
 

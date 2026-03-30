@@ -50,5 +50,5 @@ export {
   anchorTrustHash,
   verifyEventHash,
 } from './escrow';
-export { buildMultisigTransaction } from './transactions';
+export { buildMultisigTransaction, buildSetOptionsOp } from './transactions';
 export { getMinimumReserve, generateKeypair } from './accounts';
