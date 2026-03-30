@@ -37,3 +37,29 @@ export interface BalanceInfo {
   balance: string;
   lastModifiedLedger: number;
 }
+
+export interface AnchorParams {
+  hash: string;
+  eventType: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AnchorResult {
+  txHash: string;
+  ledger: number;
+  verified: boolean;
+  timestamp: Date;
+}
+
+export interface VerifyParams {
+  expectedHash: string;
+  transactionHash: string;
+}
+
+export interface VerifyResult {
+  isValid: boolean;
+  timestamp?: Date;
+  ledger?: number;
+  confirmations?: number;
+  reason?: string;
+}
