@@ -1,6 +1,7 @@
+import { StrKey } from '@stellar/stellar-sdk';
+
 export function isValidPublicKey(key: string): boolean {
-  if (!key || typeof key !== 'string') return false;
-  return key.startsWith('G') && key.length === 56;
+  return StrKey.isValidEd25519PublicKey(key);
 }
 
 export function isValidSecretKey(key: string): boolean {

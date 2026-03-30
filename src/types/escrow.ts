@@ -85,15 +85,25 @@ export function asPercentage(value: number): Percentage {
   return value;
 }
 
+
 // -----------------------------
 // Lock Custody (your feature)
 // -----------------------------
 
 export type LockCustodyFundsParams = {
+
+// ---------------------------------------------------------------------------
+// Custody fund locking types (Issue #33)
+// ---------------------------------------------------------------------------
+
+/** Parameters required to lock funds under custodian control. */
+export interface LockFundsParams {
+
   custodianPublicKey: string;
   ownerPublicKey: string;
   depositAmount: string;
   durationDays: number;
+
 };
 
 export type LockResult = {
@@ -101,3 +111,18 @@ export type LockResult = {
   unlockDate: Date;
   conditionsHash: string;
 };
+
+  conditions?: {
+    noViolations: boolean;
+    petReturned: boolean;
+  };
+}
+
+/** Result returned after custody funds are successfully locked. */
+export interface LockResult {
+  accountId: string;
+  lockedAmount: string;
+  unlockDate: Date;
+  conditionsHash: string;
+  transactionHash: string;
+}
