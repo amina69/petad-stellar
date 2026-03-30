@@ -84,6 +84,33 @@ export interface DisputeParams {
 }
 
 export interface DisputeResult {
+<<<<<<< HEAD
+=======
+  accountId: string;
+  pausedAt: Date;
+  platformOnlyMode: true;
+  txHash: string;
+}
+
+// ---------------------------------------------------------------------------
+// Custody fund locking types (Issue #33)
+// ---------------------------------------------------------------------------
+
+/** Parameters required to lock funds under custodian control. */
+export interface LockFundsParams {
+  custodianPublicKey: string;
+  ownerPublicKey: string;
+  depositAmount: string;
+  durationDays: number;
+  conditions?: {
+    noViolations: boolean;
+    petReturned: boolean;
+  };
+}
+
+/** Result returned after custody funds are successfully locked. */
+export interface LockResult {
+>>>>>>> 0c60f6c (fix: clean merge conflicts and pass CI)
   accountId: string;
   pausedAt: Date;
   platformOnlyMode: true;
