@@ -16,6 +16,8 @@
 - `SubmitResult` type: `successful`, `hash`, `ledger`, `resultXdr` (`src/types/transaction.ts`)
 - `TransactionStatus` type: `confirmed`, `confirmations`, `ledger`, `hash`, `successful` (`src/types/transaction.ts`)
 - Re-exported all transaction types from `src/types/index.ts`
+- `releaseFunds()` preflight validation for escrow lifecycle: validates escrow public key and distribution payload, loads escrow account from Horizon, maps missing accounts to `EscrowNotFoundError`, enforces positive native balance with `InsufficientBalanceError`, and returns the validated account for downstream transaction building (`src/escrow/index.ts`)
+- Extended escrow validation unit tests for early-fail behavior, not-found/error mapping, idempotency, and edge native-balance handling (`tests/unit/escrow/index.test.ts`)
 
 ## [0.1.0] - 2026-03-23
 
