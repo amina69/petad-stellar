@@ -13,10 +13,6 @@ const server = new Horizon.Server("https://horizon-testnet.stellar.org");
 const PLATFORM_PUBLIC_KEY = process.env.PLATFORM_PUBLIC_KEY ?? "";
 const OWNER_SECRET = process.env.OWNER_SECRET ?? "";
 
-if (!PLATFORM_PUBLIC_KEY || !OWNER_SECRET) {
-  throw new Error("Missing required environment variables");
-}
-
 function hashData(data: Record<string, unknown>): string {
   return crypto
     .createHash("sha256")
@@ -30,12 +26,7 @@ export async function lockCustodyFunds(params: {
   depositAmount: string;
   durationDays: number;
 }) {
-  const {
-    custodianPublicKey,
-    ownerPublicKey,
-    depositAmount,
-    durationDays,
-  } = params;
+  const { custodianPublicKey, ownerPublicKey, depositAmount, durationDays } = params;
 
   if (!custodianPublicKey || !ownerPublicKey) {
     throw new Error("Invalid public keys");
@@ -45,20 +36,19 @@ export async function lockCustodyFunds(params: {
     throw new Error("Custodian and owner must differ");
   }
 
-  if (!depositAmount || Number(depositAmount) <= 0) {
+  if (Number(depositAmount) <= 0) {
     throw new Error("Deposit must be > 0");
   }
 
-  if (!durationDays || durationDays <= 0) {
+  if (durationDays <= 0) {
     throw new Error("durationDays must be > 0");
   }
 
-  const conditions = {
+  const conditionsHash = hashData({
     noViolations: true,
     petReturned: true,
-  };
+  });
 
-  const conditionsHash = hashData(conditions);
   const unlockDate = new Date(Date.now() + durationDays * 86400000);
 
   const escrowKeypair = Keypair.random();

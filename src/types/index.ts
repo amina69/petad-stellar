@@ -1,16 +1,17 @@
-export * from "./network";
+export type Percentage = number;
 
-// Explicit exports from escrow to avoid conflicts
-export {
-  CreateEscrowParams,
-  EscrowAccount,
-  Distribution,
-  ReleaseParams,
-  ReleasedPayment,
-  ReleaseResult,
-  Percentage,
-  EscrowStatus,
-  asPercentage,
-  LockCustodyFundsParams,
-  LockResult,
-} from "./escrow";
+export function asPercentage(value: number): Percentage {
+  if (!Number.isFinite(value) || value < 0 || value > 100) {
+    throw new RangeError(`Percentage must be between 0 and 100, got ${value}`);
+  }
+  return value;
+}
+
+export enum EscrowStatus {
+  CREATED = "CREATED",
+  FUNDED = "FUNDED",
+  DISPUTED = "DISPUTED",
+  SETTLING = "SETTLING",
+  SETTLED = "SETTLED",
+  NOT_FOUND = "NOT_FOUND",
+}
