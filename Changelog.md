@@ -6,6 +6,7 @@
 - Implemented `handleDispute()` escrow lifecycle step to move escrow to platform-only signer mode by submitting signer and threshold updates, then verifying the account config via follow-up Horizon fetch (`src/escrow/index.ts`)
 
 ### Added
+- `isValidAmount()` validator: validates positive Stellar amount strings with up to 7 decimal places and rejects scientific notation (`src/utils/validation.ts`)
 - `EscrowManager` class with dependency-injected escrow lifecycle methods: `createAccount`, `lockFunds`, `releaseFunds`, `handleDispute`, `getBalance`, and `getStatus` (`src/escrow/index.ts`)
 - Consistent escrow manager error wrapping for non-SDK errors using `ESCROW_MANAGER_ERROR` (`src/escrow/index.ts`)
 - Unit tests for escrow manager instantiation and method delegation (`tests/unit/escrow/escrowManager.test.ts`)
