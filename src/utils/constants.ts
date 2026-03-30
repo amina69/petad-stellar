@@ -7,8 +7,6 @@
 // export const DEFAULT_MAX_FEE             = 10000;
 // export const DEFAULT_CONFIRMATION_DEPTH  = 3;
 
-
-
 /** Stellar testnet network passphrase — same for every developer, never changes */
 export const TESTNET_PASSPHRASE = 'Test SDF Network ; September 2015';
 

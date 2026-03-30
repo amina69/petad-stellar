@@ -5,4 +5,3 @@ describe('transactions module placeholders', () => {
     expect(buildMultisigTransaction()).toBeUndefined();
   });
 });
-

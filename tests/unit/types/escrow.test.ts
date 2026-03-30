@@ -5,7 +5,6 @@ import {
   ReleaseResult,
 } from '../../../src/types/escrow';
 
-
 // ---------------------------------------------------------------------------
 // asPercentage — branded runtime validator
 // ---------------------------------------------------------------------------
@@ -32,16 +31,12 @@ describe('asPercentage', () => {
   describe('validation errors', () => {
     it('throws RangeError for value below 0', () => {
       expect(() => asPercentage(-1)).toThrow(RangeError);
-      expect(() => asPercentage(-1)).toThrow(
-        'Percentage must be between 0 and 100, got -1',
-      );
+      expect(() => asPercentage(-1)).toThrow('Percentage must be between 0 and 100, got -1');
     });
 
     it('throws RangeError for value above 100', () => {
       expect(() => asPercentage(101)).toThrow(RangeError);
-      expect(() => asPercentage(101)).toThrow(
-        'Percentage must be between 0 and 100, got 101',
-      );
+      expect(() => asPercentage(101)).toThrow('Percentage must be between 0 and 100, got 101');
     });
 
     it('throws for NaN', () => {

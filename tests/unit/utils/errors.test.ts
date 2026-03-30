@@ -1,6 +1,9 @@
 import {
-  SdkError, ValidationError, AccountNotFoundError,
-  HorizonSubmitError, TransactionTimeoutError,
+  SdkError,
+  ValidationError,
+  AccountNotFoundError,
+  HorizonSubmitError,
+  TransactionTimeoutError,
 } from '../../../src/utils/errors';
 
 describe('SdkError hierarchy', () => {

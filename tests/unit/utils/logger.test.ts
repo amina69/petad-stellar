@@ -1,7 +1,6 @@
 import { Logger } from '../../../src/utils/logger';
 
 describe('Logger', () => {
-
   it('redacts secretKey from context object', () => {
     const log = new Logger();
     const output: string[] = [];
@@ -28,7 +27,10 @@ describe('Logger', () => {
     const output: string[] = [];
 
     const original = process.stdout.write.bind(process.stdout);
-    process.stdout.write = (chunk: string) => { output.push(chunk); return true; };
+    process.stdout.write = (chunk: string) => {
+      output.push(chunk);
+      return true;
+    };
 
     log.info('test', { secret: 'abc', privateKey: 'xyz', name: 'petad' });
 
@@ -46,7 +48,10 @@ describe('Logger', () => {
     const output: string[] = [];
 
     const original = process.stdout.write.bind(process.stdout);
-    process.stdout.write = (chunk: string) => { output.push(chunk); return true; };
+    process.stdout.write = (chunk: string) => {
+      output.push(chunk);
+      return true;
+    };
 
     log.debug('this should not appear');
 
@@ -61,7 +66,10 @@ describe('Logger', () => {
     const output: string[] = [];
 
     const original = process.stdout.write.bind(process.stdout);
-    process.stdout.write = (chunk: string) => { output.push(chunk); return true; };
+    process.stdout.write = (chunk: string) => {
+      output.push(chunk);
+      return true;
+    };
 
     log.debug('this should appear');
 
@@ -76,13 +84,17 @@ describe('Logger', () => {
   });
 
   it('outputs valid JSON for every log level', () => {
-    
-
     const outputs: string[] = [];
     const stdoutOriginal = process.stdout.write.bind(process.stdout);
     const stderrOriginal = process.stderr.write.bind(process.stderr);
-    process.stdout.write = (chunk: string) => { outputs.push(chunk); return true; };
-    process.stderr.write = (chunk: string) => { outputs.push(chunk); return true; };
+    process.stdout.write = (chunk: string) => {
+      outputs.push(chunk);
+      return true;
+    };
+    process.stderr.write = (chunk: string) => {
+      outputs.push(chunk);
+      return true;
+    };
 
     process.env.LOG_LEVEL = 'debug';
     const log2 = new Logger();
@@ -95,9 +107,8 @@ describe('Logger', () => {
     process.stderr.write = stderrOriginal;
     delete process.env.LOG_LEVEL;
 
-    outputs.forEach(o => {
+    outputs.forEach((o) => {
       expect(() => JSON.parse(o)).not.toThrow();
     });
   });
-
 });

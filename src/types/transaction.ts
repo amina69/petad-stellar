@@ -40,12 +40,7 @@ export interface ManageDataOp {
   value: string | Buffer | Uint8Array | null;
 }
 
-export type Operation =
-  | PaymentOp
-  | CreateAccountOp
-  | SetOptionsOp
-  | AccountMergeOp
-  | ManageDataOp;
+export type Operation = PaymentOp | CreateAccountOp | SetOptionsOp | AccountMergeOp | ManageDataOp;
 
 export interface BuildParams {
   sourceAccount: string;

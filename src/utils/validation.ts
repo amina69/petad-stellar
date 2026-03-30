@@ -18,7 +18,7 @@ export function isValidDistribution(
   distribution: { recipient: string; percentage: number }[],
 ): boolean {
   if (!distribution || distribution.length === 0) return false;
-  if (!distribution.every(d => isValidPublicKey(d.recipient))) return false;
+  if (!distribution.every((d) => isValidPublicKey(d.recipient))) return false;
   const total = distribution.reduce((sum, d) => sum + d.percentage, 0);
   return Math.round(total) === 100;
 }

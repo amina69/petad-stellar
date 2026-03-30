@@ -30,13 +30,12 @@
 //   error: (msg: string, ctx?: unknown) => log('error', msg, ctx),
 // };
 
-
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 const LEVELS: Record<LogLevel, number> = {
   debug: 0,
-  info:  1,
-  warn:  2,
+  info: 1,
+  warn: 2,
   error: 3,
 };
 

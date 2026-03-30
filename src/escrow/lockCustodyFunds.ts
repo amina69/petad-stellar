@@ -5,10 +5,10 @@ import {
   Networks,
   Operation,
   Memo,
-} from "@stellar/stellar-sdk";
-import crypto from "crypto";
+} from '@stellar/stellar-sdk';
+import crypto from 'crypto';
 
-const server = new Horizon.Server("https://horizon-testnet.stellar.org");
+const server = new Horizon.Server('https://horizon-testnet.stellar.org');
 
 type LockCustodyFundsParams = {
   custodianPublicKey: string;
@@ -30,42 +30,32 @@ const OWNER_SECRET = process.env.OWNER_SECRET!;
 // Deterministic hash
 // -----------------------------
 function hashData(data: object): string {
-  return crypto
-    .createHash("sha256")
-    .update(JSON.stringify(data))
-    .digest("hex");
+  return crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
 }
 
 // -----------------------------
 // MAIN FUNCTION
 // -----------------------------
-export async function lockCustodyFunds(
-  params: LockCustodyFundsParams
-): Promise<LockResult> {
-  const {
-    custodianPublicKey,
-    ownerPublicKey,
-    depositAmount,
-    durationDays,
-  } = params;
+export async function lockCustodyFunds(params: LockCustodyFundsParams): Promise<LockResult> {
+  const { custodianPublicKey, ownerPublicKey, depositAmount, durationDays } = params;
 
   // -----------------------------
   //  VALIDATION
   // -----------------------------
   if (!custodianPublicKey || !ownerPublicKey) {
-    throw new Error("Invalid public keys");
+    throw new Error('Invalid public keys');
   }
 
   if (custodianPublicKey === ownerPublicKey) {
-    throw new Error("Custodian and owner must differ");
+    throw new Error('Custodian and owner must differ');
   }
 
   if (!depositAmount || Number(depositAmount) <= 0) {
-    throw new Error("Deposit must be > 0");
+    throw new Error('Deposit must be > 0');
   }
 
   if (!durationDays || durationDays <= 0) {
-    throw new Error("durationDays must be > 0");
+    throw new Error('durationDays must be > 0');
   }
 
   // -----------------------------
@@ -92,14 +82,14 @@ export async function lockCustodyFunds(
   const sourceAccount = await server.loadAccount(ownerPublicKey);
 
   const tx = new TransactionBuilder(sourceAccount, {
-    fee: "100",
+    fee: '100',
     networkPassphrase: Networks.TESTNET,
   })
     .addOperation(
       Operation.createAccount({
         destination: escrowKeypair.publicKey(),
         startingBalance: depositAmount,
-      })
+      }),
     )
 
     // Add signers
@@ -110,7 +100,7 @@ export async function lockCustodyFunds(
           ed25519PublicKey: custodianPublicKey,
           weight: 1,
         },
-      })
+      }),
     )
     .addOperation(
       Operation.setOptions({
@@ -119,7 +109,7 @@ export async function lockCustodyFunds(
           ed25519PublicKey: ownerPublicKey,
           weight: 1,
         },
-      })
+      }),
     )
     .addOperation(
       Operation.setOptions({
@@ -128,7 +118,7 @@ export async function lockCustodyFunds(
           ed25519PublicKey: PLATFORM_PUBLIC_KEY,
           weight: 1,
         },
-      })
+      }),
     )
 
     // Multisig config
@@ -139,7 +129,7 @@ export async function lockCustodyFunds(
         lowThreshold: 2,
         medThreshold: 2,
         highThreshold: 2,
-      })
+      }),
     )
 
     // Memo (max 28 bytes)

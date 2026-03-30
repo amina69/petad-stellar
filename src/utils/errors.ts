@@ -10,7 +10,10 @@ export class SdkError extends Error {
 }
 
 export class ValidationError extends SdkError {
-  constructor(public readonly field: string, message: string) {
+  constructor(
+    public readonly field: string,
+    message: string,
+  ) {
     super(message, 'VALIDATION_ERROR', false);
   }
 }
@@ -29,7 +32,11 @@ export class EscrowNotFoundError extends SdkError {
 
 export class InsufficientBalanceError extends SdkError {
   constructor(required: string, available: string) {
-    super(`Insufficient balance. Required: ${required}, available: ${available}`, 'INSUFFICIENT_BALANCE', false);
+    super(
+      `Insufficient balance. Required: ${required}, available: ${available}`,
+      'INSUFFICIENT_BALANCE',
+      false,
+    );
   }
 }
 
@@ -50,19 +57,28 @@ export class TransactionTimeoutError extends SdkError {
 }
 
 export class MonitorTimeoutError extends SdkError {
-  constructor(public readonly txHash: string, public readonly attempts: number) {
+  constructor(
+    public readonly txHash: string,
+    public readonly attempts: number,
+  ) {
     super(`Monitor timed out after ${attempts} attempts: ${txHash}`, 'MONITOR_TIMEOUT', true);
   }
 }
 
 export class FriendbotError extends SdkError {
-  constructor(public readonly publicKey: string, statusCode: number) {
+  constructor(
+    public readonly publicKey: string,
+    statusCode: number,
+  ) {
     super(`Friendbot failed for ${publicKey}: HTTP ${statusCode}`, 'FRIENDBOT_ERROR', true);
   }
 }
 
 export class ConditionMismatchError extends SdkError {
-  constructor(public readonly stored: string, public readonly computed: string) {
+  constructor(
+    public readonly stored: string,
+    public readonly computed: string,
+  ) {
     super('Custody conditions do not match stored hash', 'CONDITION_MISMATCH', false);
   }
 }

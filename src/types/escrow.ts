@@ -11,7 +11,6 @@ export interface CreateEscrowParams {
   metadata?: { adoptionId: string; petId: string };
 }
 
-
 export interface EscrowAccount {
   accountId: string;
   transactionHash: string;
@@ -21,11 +20,11 @@ export interface EscrowAccount {
 }
 
 export enum EscrowStatus {
-  CREATED   = 'CREATED',
-  FUNDED    = 'FUNDED',
-  DISPUTED  = 'DISPUTED',
-  SETTLING  = 'SETTLING',
-  SETTLED   = 'SETTLED',
+  CREATED = 'CREATED',
+  FUNDED = 'FUNDED',
+  DISPUTED = 'DISPUTED',
+  SETTLING = 'SETTLING',
+  SETTLED = 'SETTLED',
   NOT_FOUND = 'NOT_FOUND',
 }
 
@@ -45,9 +44,7 @@ export type Percentage = number & { readonly __brand: 'Percentage' };
  */
 export function asPercentage(value: number): Percentage {
   if (!Number.isFinite(value) || value < 0 || value > 100) {
-    throw new RangeError(
-      `Percentage must be between 0 and 100, got ${value}`,
-    );
+    throw new RangeError(`Percentage must be between 0 and 100, got ${value}`);
   }
   return value as Percentage;
 }
@@ -87,8 +84,8 @@ export interface DisputeParams {
 }
 
 export interface DisputeResult {
-  accountId:        string;
-  pausedAt:         Date;
+  accountId: string;
+  pausedAt: Date;
   platformOnlyMode: true;
-  txHash:           string;
+  txHash: string;
 }
