@@ -10,19 +10,6 @@ import * as crypto from "crypto";
 
 const server = new Horizon.Server("https://horizon-testnet.stellar.org");
 
-type LockCustodyFundsParams = {
-  custodianPublicKey: string;
-  ownerPublicKey: string;
-  depositAmount: string;
-  durationDays: number;
-};
-
-type LockResult = {
-  escrowAccountId: string;
-  unlockDate: Date;
-  conditionsHash: string;
-};
-
 const PLATFORM_PUBLIC_KEY = process.env.PLATFORM_PUBLIC_KEY ?? "";
 const OWNER_SECRET = process.env.OWNER_SECRET ?? "";
 
@@ -30,9 +17,6 @@ if (!PLATFORM_PUBLIC_KEY || !OWNER_SECRET) {
   throw new Error("Missing required environment variables");
 }
 
-// -----------------------------
-// Deterministic hash
-// -----------------------------
 function hashData(data: Record<string, unknown>): string {
   return crypto
     .createHash("sha256")
@@ -40,12 +24,12 @@ function hashData(data: Record<string, unknown>): string {
     .digest("hex");
 }
 
-// -----------------------------
-// MAIN FUNCTION
-// -----------------------------
-export async function lockCustodyFunds(
-  params: LockCustodyFundsParams
-): Promise<LockResult> {
+export async function lockCustodyFunds(params: {
+  custodianPublicKey: string;
+  ownerPublicKey: string;
+  depositAmount: string;
+  durationDays: number;
+}) {
   const {
     custodianPublicKey,
     ownerPublicKey,
@@ -53,7 +37,6 @@ export async function lockCustodyFunds(
     durationDays,
   } = params;
 
-  // VALIDATION
   if (!custodianPublicKey || !ownerPublicKey) {
     throw new Error("Invalid public keys");
   }
@@ -70,18 +53,14 @@ export async function lockCustodyFunds(
     throw new Error("durationDays must be > 0");
   }
 
-  // CONDITIONS HASH
   const conditions = {
     noViolations: true,
     petReturned: true,
   };
 
   const conditionsHash = hashData(conditions);
-
-  // UNLOCK DATE
   const unlockDate = new Date(Date.now() + durationDays * 86400000);
 
-  // ESCROW ACCOUNT
   const escrowKeypair = Keypair.random();
   const sourceAccount = await server.loadAccount(ownerPublicKey);
 
