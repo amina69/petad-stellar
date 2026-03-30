@@ -22,7 +22,7 @@ import {
 } from '../types/escrow';
 import { getMinimumReserve } from '../accounts';
 import { SdkError, ValidationError } from '../utils/errors';
-import { isValidPublicKey, isValidAmount } from '../utils/validation';
+import { isValidPublicKey, isValidAmount, isValidSecretKey } from '../utils/validation';
 
 import crypto from 'crypto';
 
@@ -85,6 +85,36 @@ export interface EscrowManagerDependencies {
   accountManager: EscrowAccountManager;
   transactionManager: EscrowTransactionManager;
   masterSecretKey: string;
+}
+
+export interface HandleDisputeParams extends DisputeParams {
+  masterSecretKey: string;
+}
+
+interface HorizonSignerLike {
+  key?: string;
+  publicKey?: string;
+  ed25519PublicKey?: string;
+  weight: number;
+}
+
+interface HorizonThresholdsLike {
+  low?: number;
+  medium?: number;
+  high?: number;
+  low_threshold?: number;
+  med_threshold?: number;
+  high_threshold?: number;
+}
+
+interface HorizonAccountLike {
+  sequence?: string;
+  sequenceNumber?: string;
+  signers?: HorizonSignerLike[];
+  thresholds?: HorizonThresholdsLike;
+  low_threshold?: number;
+  med_threshold?: number;
+  high_threshold?: number;
 }
 
 const MS_PER_DAY = 86_400_000;
@@ -270,6 +300,167 @@ export async function lockCustodyFunds(
     conditionsHash,
     escrowPublicKey: escrowKeypair.publicKey(),
     transactionHash: result.hash,
+  };
+}
+
+function getSequence(account: Account | HorizonAccountLike): string {
+  const loaded = account as HorizonAccountLike;
+
+  if (typeof loaded.sequence === 'string' && loaded.sequence.length > 0) {
+    return loaded.sequence;
+  }
+
+  if (typeof loaded.sequenceNumber === 'string' && loaded.sequenceNumber.length > 0) {
+    return loaded.sequenceNumber;
+  }
+
+  throw new Error('Unable to determine account sequence from Horizon response');
+}
+
+function getSignerPublicKey(signer: HorizonSignerLike): string | undefined {
+  return signer.publicKey ?? signer.key ?? signer.ed25519PublicKey;
+}
+
+function pickNumber(...values: Array<unknown>): number {
+  for (const value of values) {
+    if (typeof value === 'number') {
+      return value;
+    }
+  }
+
+  return 0;
+}
+
+function getAccountSigners(account: Account | HorizonAccountLike): Signer[] {
+  const loaded = account as HorizonAccountLike;
+  if (!Array.isArray(loaded.signers)) return [];
+
+  return loaded.signers
+    .map((signer): Signer | null => {
+      const publicKey = getSignerPublicKey(signer);
+      const weight = Number(signer.weight);
+
+      if (!publicKey || !Number.isFinite(weight)) {
+        return null;
+      }
+
+      return {
+        publicKey,
+        weight,
+      };
+    })
+    .filter((signer): signer is Signer => signer !== null);
+}
+
+function getAccountThresholds(account: Account | HorizonAccountLike): Thresholds {
+  const loaded = account as HorizonAccountLike;
+  const fromNested = loaded.thresholds ?? {};
+
+  return {
+    low: pickNumber(fromNested.low, fromNested.low_threshold, loaded.low_threshold),
+    medium: pickNumber(fromNested.medium, fromNested.med_threshold, loaded.med_threshold),
+    high: pickNumber(fromNested.high, fromNested.high_threshold, loaded.high_threshold),
+  };
+}
+
+function isPlatformOnlyConfig(account: Account | HorizonAccountLike, platformPublicKey: string): boolean {
+  const thresholds = getAccountThresholds(account);
+  const activeSigners = getAccountSigners(account).filter(signer => signer.weight > 0);
+
+  if (activeSigners.length !== 1) return false;
+  if (activeSigners[0].publicKey !== platformPublicKey) return false;
+  if (activeSigners[0].weight !== 3) return false;
+
+  return thresholds.low === 0 && thresholds.medium === 2 && thresholds.high === 2;
+}
+
+export async function handleDispute(
+  params: HandleDisputeParams,
+  horizonServer: {
+    loadAccount: (publicKey: string) => Promise<Account | HorizonAccountLike>;
+    submitTransaction: (tx: Transaction) => Promise<{ hash: string }>;
+  },
+  networkPassphrase: string = Networks.TESTNET,
+): Promise<DisputeResult> {
+  const { escrowAccountId, masterSecretKey } = params;
+
+  if (!isValidPublicKey(escrowAccountId)) {
+    throw new ValidationError('escrowAccountId', 'Invalid escrow account ID');
+  }
+
+  if (!isValidSecretKey(masterSecretKey)) {
+    throw new ValidationError('masterSecretKey', 'Invalid master secret key');
+  }
+
+  let platformKeypair: Keypair;
+  try {
+    platformKeypair = Keypair.fromSecret(masterSecretKey);
+  } catch {
+    throw new ValidationError('masterSecretKey', 'Invalid master secret key');
+  }
+
+  const platformPublicKey = platformKeypair.publicKey();
+  const currentConfig = await horizonServer.loadAccount(escrowAccountId);
+  const currentSigners = getAccountSigners(currentConfig);
+  const sourceAccount =
+    currentConfig instanceof Account
+      ? currentConfig
+      : new Account(escrowAccountId, getSequence(currentConfig));
+
+  const txBuilder = new TransactionBuilder(sourceAccount, {
+    fee: BASE_FEE,
+    networkPassphrase,
+  });
+
+  currentSigners
+    .filter(signer => signer.publicKey !== platformPublicKey && signer.weight > 0)
+    .forEach(signer => {
+      txBuilder.addOperation(
+        Operation.setOptions({
+          source: escrowAccountId,
+          signer: {
+            ed25519PublicKey: signer.publicKey,
+            weight: 0,
+          },
+        }),
+      );
+    });
+
+  txBuilder
+    .addOperation(
+      Operation.setOptions({
+        source: escrowAccountId,
+        signer: {
+          ed25519PublicKey: platformPublicKey,
+          weight: 3,
+        },
+      }),
+    )
+    .addOperation(
+      Operation.setOptions({
+        source: escrowAccountId,
+        masterWeight: 0,
+        lowThreshold: 0,
+        medThreshold: 2,
+        highThreshold: 2,
+      }),
+    );
+
+  const tx = txBuilder.setTimeout(30).build();
+  tx.sign(platformKeypair);
+
+  const submitResult = await horizonServer.submitTransaction(tx);
+
+  const updatedConfig = await horizonServer.loadAccount(escrowAccountId);
+  if (!isPlatformOnlyConfig(updatedConfig, platformPublicKey)) {
+    throw new Error('Dispute signer update verification failed');
+  }
+
+  return {
+    accountId: escrowAccountId,
+    pausedAt: new Date(),
+    platformOnlyMode: true,
+    txHash: submitResult.hash,
   };
 }
 
