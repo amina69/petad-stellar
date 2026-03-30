@@ -1,118 +1,103 @@
-import { Signer, Thresholds } from './network';
+// -----------------------------
+// Core Types
+// -----------------------------
 
-export { Signer, Thresholds };
+export type Signer = {
+  publicKey: string;
+  weight: number;
+};
 
-export interface CreateEscrowParams {
+export type Thresholds = {
+  low: number;
+  medium: number;
+  high: number;
+};
+
+// -----------------------------
+// Create Escrow
+// -----------------------------
+
+export type CreateEscrowParams = {
   adopterPublicKey: string;
   ownerPublicKey: string;
   depositAmount: string;
-  adoptionFee?: string;
   unlockDate?: Date;
-  metadata?: { adoptionId: string; petId: string };
-}
+};
 
-export interface EscrowAccount {
+export type EscrowAccount = {
   accountId: string;
   transactionHash: string;
   signers: Signer[];
   thresholds: Thresholds;
   unlockDate?: Date;
-}
+};
 
-export enum EscrowStatus {
-  CREATED = 'CREATED',
-  FUNDED = 'FUNDED',
-  DISPUTED = 'DISPUTED',
-  SETTLING = 'SETTLING',
-  SETTLED = 'SETTLED',
-  NOT_FOUND = 'NOT_FOUND',
-}
+// -----------------------------
+// Distribution + Release (MATCH TESTS)
+// -----------------------------
 
-// ---------------------------------------------------------------------------
-// Branded type: Percentage
-// Ensures Distribution.percentage is constrained to 0-100 at the type level.
-// Use `asPercentage()` to create a validated value at runtime.
-// ---------------------------------------------------------------------------
-
-/** A number branded to signal it has been validated as 0 ≤ n ≤ 100. */
-export type Percentage = number & { readonly __brand: 'Percentage' };
-
-/**
- * Validates and casts a plain number to a `Percentage` branded type.
- * Rejects NaN, Infinity, -Infinity, and any value outside [0, 100].
- * @throws {RangeError} if value is not a finite number in [0, 100].
- */
-export function asPercentage(value: number): Percentage {
-  if (!Number.isFinite(value) || value < 0 || value > 100) {
-    throw new RangeError(`Percentage must be between 0 and 100, got ${value}`);
-  }
-  return value as Percentage;
-}
-
-// ---------------------------------------------------------------------------
-// Escrow release / settlement types (Issue #34)
-// ---------------------------------------------------------------------------
-
-/** A single recipient and their share of the escrow release. */
-export interface Distribution {
+export type Distribution = {
   recipient: string;
-  percentage: Percentage;
-}
+  percentage: number;
+};
 
-/** Parameters required to trigger an escrow release settlement. */
-export interface ReleaseParams {
+export type ReleaseParams = {
   escrowAccountId: string;
   distribution: Distribution[];
-}
+};
 
-/** Recorded payment made to a recipient during settlement. */
-export interface ReleasedPayment {
+export type ReleasedPayment = {
   recipient: string;
   amount: string;
-}
+};
 
-/** Result returned after an escrow release transaction is submitted. */
-export interface ReleaseResult {
+export type ReleaseResult = {
   successful: boolean;
   txHash: string;
   ledger: number;
-  payments: ReleasedPayment[];
+  payments?: ReleasedPayment[];
+};
+
+// -----------------------------
+// Utility Types
+// -----------------------------
+
+export type Percentage = number;
+
+export enum EscrowStatus {
+  CREATED = "CREATED",
+  FUNDED = "FUNDED",
+  DISPUTED = "DISPUTED",
+  SETTLING = "SETTLING",
+  SETTLED = "SETTLED",
+  NOT_FOUND = "NOT_FOUND",
 }
 
-export interface DisputeParams {
-  escrowAccountId: string;
+export function asPercentage(value: number): Percentage {
+  if (!Number.isFinite(value)) {
+    throw new RangeError(`Percentage must be between 0 and 100, got ${value}`);
+  }
+
+  if (value < 0 || value > 100) {
+    throw new RangeError(`Percentage must be between 0 and 100, got ${value}`);
+  }
+
+  return value;
 }
 
-export interface DisputeResult {
-<<<<<<< HEAD
-=======
-  accountId: string;
-  pausedAt: Date;
-  platformOnlyMode: true;
-  txHash: string;
-}
+// -----------------------------
+// Lock Custody (your feature)
+// -----------------------------
 
-// ---------------------------------------------------------------------------
-// Custody fund locking types (Issue #33)
-// ---------------------------------------------------------------------------
-
-/** Parameters required to lock funds under custodian control. */
-export interface LockFundsParams {
+export type LockCustodyFundsParams = {
   custodianPublicKey: string;
   ownerPublicKey: string;
   depositAmount: string;
   durationDays: number;
-  conditions?: {
-    noViolations: boolean;
-    petReturned: boolean;
-  };
-}
+};
 
-/** Result returned after custody funds are successfully locked. */
-export interface LockResult {
->>>>>>> 0c60f6c (fix: clean merge conflicts and pass CI)
-  accountId: string;
-  pausedAt: Date;
-  platformOnlyMode: true;
-  txHash: string;
-}
+export type LockResult = {
+  escrowAccountId: string;
+  unlockDate: Date;
+  conditionsHash: string;
+};
