@@ -1,6 +1,7 @@
 
 import { HorizonSubmitError } from '../utils/errors';
 import { TESTNET_HORIZON_URL } from '../utils/constants';
+export { buildSetOptionsOp } from './builder';
 
 /**
  * Internal: Fetch a single transaction status from Horizon by hash.
