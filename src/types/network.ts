@@ -1,3 +1,5 @@
+import { Networks } from '@stellar/stellar-sdk';
+
 export interface SDKConfig {
   network: 'testnet' | 'public';
   horizonUrl: string;
@@ -62,4 +64,13 @@ export interface VerifyResult {
   ledger?: number;
   confirmations?: number;
   reason?: string;
+}
+
+/**
+ * Gets the network passphrase based on the environment name
+ * @param network 'testnet' or 'public'
+ * @returns {string}
+ */
+export function getNetworkPassphrase(network: string): string {
+  return network === 'public' ? Networks.PUBLIC : Networks.TESTNET;
 }
