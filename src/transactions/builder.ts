@@ -1,7 +1,7 @@
-import { Operation, xdr } from '@stellar/stellar-sdk';
-
+import { Operation, Transaction, TransactionBuilder as StellarTransactionBuilder, xdr } from '@stellar/stellar-sdk';
 import { ValidationError } from '../utils/errors';
 import { isValidPublicKey } from '../utils/validation';
+import { getNetworkPassphrase } from '../types/network';
 
 export interface SetOptionsSignerInput {
   publicKey: string;
@@ -74,4 +74,33 @@ export function buildSetOptionsOp(params: BuildSetOptionsOpParams): xdr.Operatio
   }
 
   return operations;
+}
+
+/**
+ * Serialise a transaction to XDR string.
+ * @param tx Transaction to serialise
+ * @returns {string} XDR string
+ */
+export function transactionToXDR(tx: Transaction): string {
+  return tx.toXDR();
+}
+
+/**
+ * Deserialise a transaction from XDR string.
+ * @param xdr XDR string to deserialise
+ * @param network Network name to use for passphrase
+ * @returns {Transaction} Deserialised transaction
+ * @throws {ValidationError} If XDR is invalid or empty
+ */
+export function transactionFromXDR(xdrString: string, network: string): Transaction {
+  if (!xdrString || typeof xdrString !== 'string') {
+    throw new ValidationError('xdr', 'Invalid XDR envelope');
+  }
+
+  try {
+    const networkPassphrase = getNetworkPassphrase(network);
+    return StellarTransactionBuilder.fromXDR(xdrString, networkPassphrase) as Transaction;
+  } catch (error) {
+    throw new ValidationError('xdr', 'Invalid XDR envelope');
+  }
 }
