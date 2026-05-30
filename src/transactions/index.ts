@@ -1,4 +1,9 @@
-import { Operation } from '@stellar/stellar-sdk';
+import {
+  Networks,
+  Operation,
+  Transaction,
+  TransactionBuilder,
+} from '@stellar/stellar-sdk';
 
 import { getMinimumReserve } from '../accounts';
 import { ValidationError } from '../utils/errors';
@@ -34,6 +39,22 @@ export function buildCreateAccountOp({
     destination,
     startingBalance,
   });
+}
+
+export function transactionToXDR(tx: Transaction): string {
+  return tx.toXDR();
+}
+
+export function transactionFromXDR(xdr: string): Transaction {
+  if (typeof xdr !== 'string' || xdr.trim().length === 0) {
+    throw new ValidationError('xdr', 'Invalid XDR envelope');
+  }
+
+  try {
+    return TransactionBuilder.fromXDR(xdr, Networks.TESTNET) as Transaction;
+  } catch {
+    throw new ValidationError('xdr', 'Invalid XDR envelope');
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

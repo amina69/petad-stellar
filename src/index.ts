@@ -30,5 +30,10 @@ export type { SubmitResult, TransactionStatus } from './types/transaction';
 
 // 6. Standalone functions
 export { createEscrowAccount, lockCustodyFunds, anchorTrustHash, verifyEventHash } from './escrow';
-export { buildCreateAccountOp, buildMultisigTransaction } from './transactions';
+export {
+  buildCreateAccountOp,
+  buildMultisigTransaction,
+  transactionFromXDR,
+  transactionToXDR,
+} from './transactions';
 export { getMinimumReserve } from './accounts';
