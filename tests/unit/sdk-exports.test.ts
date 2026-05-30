@@ -11,6 +11,7 @@ import defaultExport, {
   FriendbotError,
   ConditionMismatchError,
   EscrowStatus,
+  submitTransaction,
 } from '../../src/index';
 
 // Requirements 1.3
@@ -107,5 +108,11 @@ describe('EscrowStatus enum values resolve to their expected string literals', (
 
   it('EscrowStatus.NOT_FOUND === "NOT_FOUND"', () => {
     expect(EscrowStatus.NOT_FOUND).toBe('NOT_FOUND');
+  });
+});
+
+describe('transaction helpers are exported from the entry point', () => {
+  it('submitTransaction is exported and callable', () => {
+    expect(typeof submitTransaction).toBe('function');
   });
 });
