@@ -149,6 +149,40 @@ export function calculateStartingBalance(depositAmount: string): string {
 
 // ─── createEscrowAccount ──────────────────────────────────────────────────────
 
+/**
+ * Creates a new escrow account for a pet adoption.
+ *
+ * Validates the inputs, generates a fresh escrow keypair, funds the account with the
+ * deposit plus the minimum reserve via the supplied account manager, and returns the
+ * escrow description with its 3 signers (escrow, adopter, owner) and 1/2/2 thresholds.
+ *
+ * @param params - Escrow creation parameters
+ * @param params.adopterPublicKey - Adopter's Stellar public key (G..., 56 chars)
+ * @param params.ownerPublicKey - Owner's Stellar public key (G..., 56 chars)
+ * @param params.depositAmount - Deposit in XLM, positive, max 7 decimal places
+ * @param params.unlockDate - Optional date included in the returned escrow
+ * @param accountManager - Creates and funds the escrow account on the network
+ *
+ * @returns The created {@link EscrowAccount}
+ *
+ * @throws {ValidationError} If `adopterPublicKey`, `ownerPublicKey` or `depositAmount` is invalid
+ * @throws {InsufficientBalanceError} If the account manager cannot fund the account
+ *
+ * @example
+ * ```typescript
+ * const escrow = await createEscrowAccount(
+ *   {
+ *     adopterPublicKey: 'GADOPTER...',
+ *     ownerPublicKey: 'GOWNER...',
+ *     depositAmount: '100.0000000',
+ *   },
+ *   accountManager,
+ * );
+ *
+ * console.log(escrow.accountId);
+ * console.log(escrow.thresholds); // { low: 1, medium: 2, high: 2 }
+ * ```
+ */
 export async function createEscrowAccount(
   params: CreateEscrowParams,
   accountManager: {
