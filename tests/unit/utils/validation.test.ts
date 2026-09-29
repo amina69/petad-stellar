@@ -25,10 +25,14 @@ describe('isValidSecretKey', () => {
 describe('isValidAmount', () => {
   it('accepts positive decimal', () => expect(isValidAmount('100.50')).toBe(true));
   it('accepts whole number',     () => expect(isValidAmount('500')).toBe(true));
+  it('accepts "100"',            () => expect(isValidAmount('100')).toBe(true));
+  it('accepts smallest 7dp value', () => expect(isValidAmount('0.0000001')).toBe(true));
   it('rejects zero',             () => expect(isValidAmount('0')).toBe(false));
   it('rejects negative',         () => expect(isValidAmount('-50')).toBe(false));
   it('rejects non-numeric',      () => expect(isValidAmount('abc')).toBe(false));
   it('rejects empty string',     () => expect(isValidAmount('')).toBe(false));
+  it('rejects scientific notation', () => expect(isValidAmount('1e5')).toBe(false));
+  it('rejects more than 7 decimals', () => expect(isValidAmount('1.12345678')).toBe(false));
 });
 
 describe('isValidDistribution', () => {
